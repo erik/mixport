@@ -1,13 +1,16 @@
 package api
 
-import "time"
-import "io"
-import "net/http"
-import "encoding/json"
-import "net/url"
-import "crypto/md5"
-
-// url.QueryEscape(string)
+import (
+	"bytes"
+	"crypto/md5"
+	"encoding/json"
+	"fmt"
+	kinesis "github.com/sendgridlabs/go-kinesis"
+	"io"
+	"net/http"
+	"net/url"
+	"time"
+)
 
 /// The official base url
 const MIXPANEL_BASE_URL = "http://mixpanel.com/api"
@@ -45,14 +48,12 @@ func (m *Mixpanel) MakeArgs() url.Values {
 
 	args.Set("format", "json")
 	args.Set("api_key", m.Key)
-
-	// XXX: I don't even know what this is supposed to represent.
 	args.Set("expire", string(time.Now().Unix()+10000))
 
 	return args
 }
 
-func (m *Mixpanel) ExportDate(events []string, date time.Time, tempDir string, moreArgs *url.Values) {
+func (m *Mixpanel) ExportDate(date time.Time, ksis kinesis.Kinesis, moreArgs *url.Values) {
 	args := m.MakeArgs()
 
 	if moreArgs != nil {
@@ -71,8 +72,7 @@ func (m *Mixpanel) ExportDate(events []string, date time.Time, tempDir string, m
 
 	eventChans := make(map[string]chan map[string]interface{})
 
-	// XXX: clean up
-	resp, err := http.Get(m.BaseUrl + "/2.0/export?" + args.Encode())
+	resp, err := http.Get(fmt.Sprintf("%s/2.0/export?%s", m.BaseUrl, args.Encode()))
 	if err != nil {
 		panic("XXX handle this. FAILED")
 	}
@@ -97,13 +97,42 @@ func (m *Mixpanel) ExportDate(events []string, date time.Time, tempDir string, m
 			eventChan <- ev.properties
 		} else {
 			eventChans[ev.event] = make(chan map[string]interface{})
-			go m.EventHandler(ev.event, tempDir, eventChans[ev.event])
+			go m.EventHandler(ev.event, eventChans[ev.event], ksis)
 
 			eventChans[ev.event] <- ev.properties
 		}
 	}
+
+	// Finish off all the handlers
+	for _, ch := range eventChans {
+		close(ch)
+	}
 }
 
-func (m *Mixpanel) EventHandler(event, tempDir string, jsonChan chan map[string]interface{}) {
-	/// XXX: Write me.
+// TODO: ensure distinct_id is present
+func (m *Mixpanel) EventHandler(event string, jsonChan chan map[string]interface{}, ksis kinesis.Kinesis) {
+	args := kinesis.NewArgs()
+	args.Add("StreamName", "TODO: read from config")
+	args.Add("PartitionKey", fmt.Sprintf("%s-%s", m.Product, event))
+
+	for {
+		props, ok := <-jsonChan
+
+		if !ok {
+			break
+		}
+
+		props["product"] = m.Product
+		props["event"] = event
+
+		var buf bytes.Buffer
+		encoder := json.NewEncoder(&buf)
+		encoder.Encode(props)
+
+		args.Add("Data", buf.Bytes())
+
+		if _, err := ksis.PutRecord(args); err != nil {
+			fmt.Printf("PutRecord err: %v\n", err)
+		}
+	}
 }
