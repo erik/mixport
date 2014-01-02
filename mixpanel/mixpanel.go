@@ -1,11 +1,10 @@
-package api
+package mixpanel
 
 import (
 	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	kinesis "github.com/sendgridlabs/go-kinesis"
 	"io"
 	"net/http"
 	"net/url"
@@ -22,11 +21,11 @@ type Mixpanel struct {
 	BaseUrl string
 }
 
-func NewMixpanel(product, key, secret string) *Mixpanel {
-	return NewMixpanelWithUrl(product, key, secret, MIXPANEL_BASE_URL)
+func New(product, key, secret string) *Mixpanel {
+	return NewWithUrl(product, key, secret, MIXPANEL_BASE_URL)
 }
 
-func NewMixpanelWithUrl(product, key, secret, baseUrl string) *Mixpanel {
+func NewWithUrl(product, key, secret, baseUrl string) *Mixpanel {
 	m := new(Mixpanel)
 	m.Product = product
 	m.Key = key
@@ -53,7 +52,7 @@ func (m *Mixpanel) MakeArgs() url.Values {
 	return args
 }
 
-func (m *Mixpanel) ExportDate(date time.Time, ksis kinesis.Kinesis, moreArgs *url.Values) {
+func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *url.Values) {
 	args := m.MakeArgs()
 
 	if moreArgs != nil {
@@ -91,13 +90,13 @@ func (m *Mixpanel) ExportDate(date time.Time, ksis kinesis.Kinesis, moreArgs *ur
 			panic(err)
 		}
 
-		// Send the data to the proper event channel or create it if it
+		// Send the data to the proper event channel, or create it if it
 		// doesn't already exist.
 		if eventChan, ok := eventChans[ev.event]; ok {
 			eventChan <- ev.properties
 		} else {
 			eventChans[ev.event] = make(chan map[string]interface{})
-			go m.EventHandler(ev.event, eventChans[ev.event], ksis)
+			go m.EventHandler(ev.event, eventChans[ev.event], outChan)
 
 			eventChans[ev.event] <- ev.properties
 		}
@@ -110,11 +109,7 @@ func (m *Mixpanel) ExportDate(date time.Time, ksis kinesis.Kinesis, moreArgs *ur
 }
 
 // TODO: ensure distinct_id is present
-func (m *Mixpanel) EventHandler(event string, jsonChan chan map[string]interface{}, ksis kinesis.Kinesis) {
-	args := kinesis.NewArgs()
-	args.Add("StreamName", "TODO: read from config")
-	args.Add("PartitionKey", fmt.Sprintf("%s-%s", m.Product, event))
-
+func (m *Mixpanel) EventHandler(event string, jsonChan chan map[string]interface{}, output chan<- []byte) {
 	for {
 		props, ok := <-jsonChan
 
@@ -129,10 +124,6 @@ func (m *Mixpanel) EventHandler(event string, jsonChan chan map[string]interface
 		encoder := json.NewEncoder(&buf)
 		encoder.Encode(props)
 
-		args.Add("Data", buf.Bytes())
-
-		if _, err := ksis.PutRecord(args); err != nil {
-			fmt.Printf("PutRecord err: %v\n", err)
-		}
+		output <- buf.Bytes()
 	}
 }
