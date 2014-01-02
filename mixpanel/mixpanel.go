@@ -11,30 +11,37 @@ import (
 	"time"
 )
 
-/// The official base url
-const MIXPANEL_BASE_URL = "http://mixpanel.com/api"
+// The official base URL
+const MixpanelBaseURL = "http://mixpanel.com/api"
 
+// Mixpanel struct represents a set of credentials used to access the Mixpanel
+// API for a particular product.
 type Mixpanel struct {
 	Product string
 	Key     string
 	Secret  string
-	BaseUrl string
+	BaseURL string
 }
 
+// New creates a Mixpanel object with the given API credentials and uses the
+// official API URL.
 func New(product, key, secret string) *Mixpanel {
-	return NewWithUrl(product, key, secret, MIXPANEL_BASE_URL)
+	return NewWithUrl(product, key, secret, MixpanelBaseURL)
 }
 
-func NewWithUrl(product, key, secret, baseUrl string) *Mixpanel {
+// NewWithURL creates a Mixpanel object with the given API credentials and a
+// custom Mixpanel API URL. (I doubt this will ever be useful but there you go)
+func NewWithURL(product, key, secret, baseURL string) *Mixpanel {
 	m := new(Mixpanel)
 	m.Product = product
 	m.Key = key
 	m.Secret = secret
-	m.BaseUrl = baseUrl
+	m.BaseURL = baseURL
 	return m
 }
 
-func (m *Mixpanel) AddSignature(args *url.Values) {
+// Add the cryptographic signature that Mixpanel API requests require.
+func (m *Mixpanel) addSignature(args *url.Values) {
 	hash := md5.New()
 	io.WriteString(hash, args.Encode())
 	io.WriteString(hash, m.Secret)
@@ -42,7 +49,8 @@ func (m *Mixpanel) AddSignature(args *url.Values) {
 	args.Set("sig", string(hash.Sum(nil)))
 }
 
-func (m *Mixpanel) MakeArgs() url.Values {
+// Generate the initial, base arguments that all Mixpanel API requests use.
+func (m *Mixpanel) makeArgs() url.Values {
 	args := url.Values{}
 
 	args.Set("format", "json")
@@ -52,6 +60,12 @@ func (m *Mixpanel) MakeArgs() url.Values {
 	return args
 }
 
+// ExportDate downloads event data for the given day and streams the resulting
+// transformed JSON blobs as byte strings over the send-only channel passed
+// to the function.
+//
+// The optional `moreArgs` parameter can be given to add additional URL
+// parameters to the API request.
 func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *url.Values) {
 	args := m.MakeArgs()
 
@@ -71,19 +85,19 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *u
 
 	eventChans := make(map[string]chan map[string]interface{})
 
-	resp, err := http.Get(fmt.Sprintf("%s/2.0/export?%s", m.BaseUrl, args.Encode()))
+	resp, err := http.Get(fmt.Sprintf("%s/2.0/export?%s", m.BaseURL, args.Encode()))
 	if err != nil {
 		panic("XXX handle this. FAILED")
 	}
 
-	type JsonEvent struct {
+	type JSONEvent struct {
 		event      string
 		properties map[string]interface{}
 	}
 
 	decoder := json.NewDecoder(resp.Body)
 	for {
-		var ev JsonEvent
+		var ev JSONEvent
 		if err := decoder.Decode(&ev); err == io.EOF {
 			break
 		} else if err != nil {
@@ -96,7 +110,7 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *u
 			eventChan <- ev.properties
 		} else {
 			eventChans[ev.event] = make(chan map[string]interface{})
-			go m.EventHandler(ev.event, eventChans[ev.event], outChan)
+			go m.eventHandler(ev.event, eventChans[ev.event], outChan)
 
 			eventChans[ev.event] <- ev.properties
 		}
@@ -108,8 +122,9 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *u
 	}
 }
 
-// TODO: ensure distinct_id is present
-func (m *Mixpanel) EventHandler(event string, jsonChan chan map[string]interface{}, output chan<- []byte) {
+func (m *Mixpanel) eventHandler(event string, jsonChan chan map[string]interface{}, output chan<- []byte) {
+	// XXX: This function is possibly irrelevant, can be done in single thread in `ExportDate`
+	// TODO: ensure distinct_id is present
 	for {
 		props, ok := <-jsonChan
 

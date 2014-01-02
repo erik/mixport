@@ -6,7 +6,7 @@ import (
 )
 
 // Stream records to Kinesis
-func KinesisStreamer(records chan []byte) {
+func kinesisStreamer(records chan []byte) {
 	ksis := kinesis.New("", "")
 
 	args := kinesis.NewArgs()
@@ -26,11 +26,10 @@ func KinesisStreamer(records chan []byte) {
 			fmt.Printf("PutRecord err: %v\n", err)
 		}
 	}
-
 }
 
 // Stream records to local file
-func FileStreamer(file string, recordChan chan []byte) {
+func fileStreamer(file string, recordChan chan []byte) {
 	// TODO: write me
 }
 
