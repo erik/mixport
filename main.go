@@ -140,20 +140,20 @@ func main() {
 					log.Fatalf("Couldn't create file: %s", err)
 				}
 
-				defer fp.Close()
-
-				var writer io.Writer
-				if conf.Gzip {
-					writer = gzip.NewWriter(fp)
-				} else {
-					writer = fp
-				}
-
 				wg.Add(1)
-				go func() {
+				go func(fp *os.File) {
+
+					var writer io.Writer
+					if conf.Gzip {
+						writer = gzip.NewWriter(fp)
+					} else {
+						writer = fp
+					}
+
 					streamer(writer, ch)
+					defer fp.Close()
 					defer wg.Done()
-				}()
+				}(fp)
 			}
 
 			if cfg.JSON.State {
