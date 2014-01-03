@@ -123,7 +123,6 @@ func main() {
 				go streaming.CSVStreamer(name, ch)
 			}
 
-			// FIXME: need to be able to change dates
 			go client.ExportDate(exportDate, eventData, nil)
 
 			for data := range eventData {
