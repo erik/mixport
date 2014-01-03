@@ -1,10 +1,13 @@
 [csv]
+state = on # If not specified, this defaults to off
 directory = /path/to/download/dir
 
 [json]
+state = on
 directory = /path/to/download/dir
 
 [kinesis]
+state = off
 keyid = AWS_ACCESS_KEY_ID
 secretkey = AWS_SECRET_ACCESS_KEY
 stream = kinesis stream name
