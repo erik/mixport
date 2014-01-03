@@ -42,7 +42,6 @@ func CSVStreamer(name string, records <-chan mixpanel.EventData) {
 
 				writer.Write([]string{id, key, value.(string)})
 			}
-
 		}
 	}
 }

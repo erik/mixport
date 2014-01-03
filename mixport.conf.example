@@ -1,0 +1,21 @@
+[csv]
+directory = /path/to/download/dir
+
+[json]
+directory = /path/to/download/dir
+
+[kinesis]
+keyid = AWS_ACCESS_KEY_ID
+secretkey = AWS_SECRET_ACCESS_KEY
+stream = kinesis stream name
+region = us-east-1
+
+[product "foo"]
+key = API_KEY
+secret = API_SECRET
+token = API_TOKEN
+
+[product "bar"]
+key = API_KEY
+secret = API_SECRET
+token = API_TOKEN
