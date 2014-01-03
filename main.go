@@ -2,10 +2,12 @@ package main
 
 import (
 	"code.google.com/p/gcfg"
+	"compress/gzip"
 	"flag"
 	"github.com/boredomist/mixport/mixpanel"
 	"github.com/boredomist/mixport/streaming"
 	kinesis "github.com/sendgridlabs/go-kinesis"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -21,6 +23,13 @@ type mixpanelCredentials struct {
 	Token  string
 }
 
+// Configuration options common to the file export streams (CSV and JSON)
+type fileExportConfig struct {
+	State     bool
+	Gzip      bool
+	Directory string
+}
+
 // configFormat is the in-memory representation of the mixport configuration
 // file.
 type configFormat struct {
@@ -33,15 +42,8 @@ type configFormat struct {
 		Region    string
 	}
 
-	JSON struct {
-		State     bool
-		Directory string
-	}
-
-	CSV struct {
-		State     bool
-		Directory string
-	}
+	JSON fileExportConfig
+	CSV  fileExportConfig
 }
 
 const (
@@ -121,11 +123,18 @@ func main() {
 				}()
 			}
 
-			if cfg.JSON.State {
+			type streamFunc func(io.Writer, <-chan mixpanel.EventData)
+
+			// Generalize setup of JSON and CSV streams into a single function.
+			setupFileExportStream := func(conf fileExportConfig, ext string, streamer streamFunc) {
 				ch := make(chan mixpanel.EventData)
 				chans = append(chans, ch)
 
-				name := path.Join(cfg.JSON.Directory, product+".json")
+				name := path.Join(conf.Directory, product+ext)
+				if conf.Gzip {
+					name += ".gz"
+				}
+
 				fp, err := os.Create(name)
 				if err != nil {
 					log.Fatalf("Couldn't create file: %s", err)
@@ -133,30 +142,26 @@ func main() {
 
 				defer fp.Close()
 
+				var writer io.Writer
+				if conf.Gzip {
+					writer = gzip.NewWriter(fp)
+				} else {
+					writer = fp
+				}
+
 				wg.Add(1)
 				go func() {
-					streaming.JSONStreamer(fp, ch)
+					streamer(writer, ch)
 					defer wg.Done()
 				}()
 			}
 
+			if cfg.JSON.State {
+				setupFileExportStream(cfg.JSON, ".json", streaming.JSONStreamer)
+			}
+
 			if cfg.CSV.State {
-				ch := make(chan mixpanel.EventData)
-				chans = append(chans, ch)
-
-				name := path.Join(cfg.JSON.Directory, product+".csv")
-				fp, err := os.Create(name)
-				if err != nil {
-					log.Fatalf("Couldn't create file: %s", err)
-				}
-
-				defer fp.Close()
-
-				wg.Add(1)
-				go func() {
-					streaming.CSVStreamer(fp, ch)
-					defer wg.Done()
-				}()
+				setupFileExportStream(cfg.CSV, ".csv", streaming.CSVStreamer)
 			}
 
 			go client.ExportDate(exportDate, eventData, nil)
