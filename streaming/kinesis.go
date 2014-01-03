@@ -8,12 +8,14 @@ import (
 	kinesis "github.com/sendgridlabs/go-kinesis"
 )
 
-// KinesisStreamer writes records to a Kinesis Stream
-func KinesisStreamer(records <-chan mixpanel.EventData) {
-	ksis := kinesis.New("", "")
-
+// KinesisStreamer pushes each of the JSON blobs into an Amazon Kinesis stream
+// by issuing PutRecord requests for each individual event instance.
+//
+// Make sure your Kinesis stream has enough shards to handle the incoming data,
+// as this can be very noisy.
+func KinesisStreamer(ksis *kinesis.Kinesis, stream string, records <-chan mixpanel.EventData) {
 	args := kinesis.NewArgs()
-	args.Add("StreamName", "TODO")
+	args.Add("StreamName", stream)
 
 	for record := range records {
 		var buf bytes.Buffer

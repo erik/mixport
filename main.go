@@ -5,6 +5,7 @@ import (
 	"flag"
 	"github.com/boredomist/mixport/mixpanel"
 	"github.com/boredomist/mixport/streaming"
+	kinesis "github.com/sendgridlabs/go-kinesis"
 	"log"
 	"os"
 	"path"
@@ -59,6 +60,7 @@ func init() {
 		confUsage = "path to configuration file"
 		dateUsage = "date (YYYY-MM-DD) of data to pull, default is yesterday"
 	)
+
 	flag.StringVar(&configFile, "config", defaultConfig, confUsage)
 	flag.StringVar(&configFile, "c", defaultConfig, confUsage)
 	flag.StringVar(&dateString, "date", defaultDate, dateUsage)
@@ -104,8 +106,15 @@ func main() {
 			var chans []chan mixpanel.EventData
 
 			if cfg.Kinesis.State {
-				// TODO: Call kinesis
-				// append(chans, make(chan mixpanel.EventData))
+				ch := make(chan mixpanel.EventData)
+				chans = append(chans, ch)
+
+				ksis := kinesis.New(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey)
+				if cfg.Kinesis.Region != "" {
+					ksis.Region = "us-east-1"
+				}
+
+				streaming.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
 			}
 
 			if cfg.JSON.State {
