@@ -16,15 +16,17 @@ const defaultConfig = "mixport.conf"
 
 var configFile string
 
+// Mixpanel API credentials, used by the configuration parser.
+type mixpanelCredentials struct {
+	Key    string
+	Secret string
+	Token  string
+}
+
 // configFormat is the in-memory representation of the mixport configuration
 // file.
 type configFormat struct {
-	Product map[string]*struct {
-		Key    string
-		Secret string
-		Token  string
-	}
-
+	Product map[string]*mixpanelCredentials
 	Kinesis struct {
 		State     bool
 		Keyid     string
@@ -68,7 +70,7 @@ func main() {
 
 	for product, creds := range cfg.Product {
 		// Run each individual product in a new thread.
-		go func() {
+		go func(product string, creds mixpanelCredentials) {
 			defer wg.Done()
 
 			client := mixpanel.New(product, creds.Key, creds.Secret)
@@ -114,7 +116,7 @@ func main() {
 			// XXX: It's completely possible for execution to die
 			// here before all of the channels have time to finish
 			// processing. Need another waitgroup, maybe
-		}()
+		}(product, *creds)
 	}
 
 	// Wait for all our goroutines to finish up

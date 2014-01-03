@@ -11,7 +11,6 @@ import (
 	"log"
 	"strings"
 	"sort"
-	"bufio"
 )
 
 // The official base URL
@@ -110,26 +109,34 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs
 	defer resp.Body.Close()
 
 	if err != nil {
-		log.Fatalf("XXX handle this: download failed: %s", err)
+		log.Fatalf("%s: XXX handle this: download failed: %s", m.Product, err)
 	}
 
-	scanner := bufio.NewScanner(resp.Body)
-	for scanner.Scan() {
+	decoder := json.NewDecoder(resp.Body)
+
+	// Don't default all numeric values to float
+	decoder.UseNumber()
+
+	for {
 		var ev struct {
 			Error *string
 			Event      string
 			Properties map[string]interface{}
 		}
 
-		line := scanner.Text()
-
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			log.Fatalf("Failed to parse JSON: %s", err)
+		if err := decoder.Decode(&ev); err == io.EOF {
+			break
+		} else if err != nil {
+			log.Fatalf("%s: Failed to parse JSON: %s", m.Product, err)
 		} else if ev.Error != nil {
-			log.Fatalf("Hit API error: %s", ev.Error)
+			log.Fatalf("%s: Hit API error: %s", m.Product, *ev.Error)
 		}
 
-		// TODO: ensure that distinct_id is present (even though it should be)
+		// TODO: handle distinct_id not being present instead of skipping
+		if _, ok := ev.Properties["distinct_id"]; !ok {
+			continue
+		}
+
 
 		ev.Properties["product"] = m.Product
 		ev.Properties["event"] = ev.Event
@@ -137,11 +144,6 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs
 		outChan <- ev.Properties
 
 	}
-
-	if err := scanner.Err(); err != nil {
-		log.Fatalf("Error reading response: %s", err)
-	}
-
 
 	defer close(outChan)
 }
