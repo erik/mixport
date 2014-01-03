@@ -83,8 +83,6 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *u
 
 	m.AddSignature(&args)
 
-	eventChans := make(map[string]chan map[string]interface{})
-
 	resp, err := http.Get(fmt.Sprintf("%s/2.0/export?%s", m.BaseURL, args.Encode()))
 	if err != nil {
 		panic("XXX handle this. FAILED")
@@ -101,39 +99,14 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *u
 		if err := decoder.Decode(&ev); err == io.EOF {
 			break
 		} else if err != nil {
+			// TODO: handle {"error": "..."} responses more gracefully?
 			panic(err)
 		}
 
-		// Send the data to the proper event channel, or create it if it
-		// doesn't already exist.
-		if eventChan, ok := eventChans[ev.event]; ok {
-			eventChan <- ev.properties
-		} else {
-			eventChans[ev.event] = make(chan map[string]interface{})
-			go m.eventHandler(ev.event, eventChans[ev.event], outChan)
-
-			eventChans[ev.event] <- ev.properties
-		}
-	}
-
-	// Finish off all the handlers
-	for _, ch := range eventChans {
-		close(ch)
-	}
-}
-
-func (m *Mixpanel) eventHandler(event string, jsonChan chan map[string]interface{}, output chan<- []byte) {
-	// XXX: This function is possibly irrelevant, can be done in single thread in `ExportDate`
-	// TODO: ensure distinct_id is present
-	for {
-		props, ok := <-jsonChan
-
-		if !ok {
-			break
-		}
-
+		// TODO: ensure that distinct_id is present (even though it should be)
+		props := ev.properties
 		props["product"] = m.Product
-		props["event"] = event
+		props["event"] = ev.event
 
 		var buf bytes.Buffer
 		encoder := json.NewEncoder(&buf)
