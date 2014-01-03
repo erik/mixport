@@ -26,5 +26,5 @@ Basically, this should be set and forget.
 
    ```python
        for key, value in record:
-           INSERT INTO mixpanel (id, key, value) VALUES (record[event_id'], key, value)
+           INSERT INTO mixpanel (id, key, value) VALUES (record['event_id'], key, value)
    ```

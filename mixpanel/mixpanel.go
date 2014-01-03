@@ -154,7 +154,7 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 		if id, err := uuid.NewV4(); err == nil {
 			ev.Properties[EventIDKey] = id.String()
 		} else {
-			log.Fatalf("%s: generating UUID failed: %s", err)
+			log.Fatalf("%s: generating UUID failed: %s", m.Product, err)
 		}
 
 		ev.Properties["product"] = m.Product

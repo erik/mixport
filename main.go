@@ -114,7 +114,11 @@ func main() {
 					ksis.Region = "us-east-1"
 				}
 
-				streaming.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
+				wg.Add(1)
+				go func() {
+					streaming.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
+					wg.Done()
+				}()
 			}
 
 			if cfg.JSON.State {
