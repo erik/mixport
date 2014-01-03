@@ -1,11 +1,11 @@
 package streaming
 
 import (
-	"io"
-	"os"
 	"encoding/json"
 	"github.com/boredomist/mixport/mixpanel"
+	"io"
 	"log"
+	"os"
 )
 
 // JSONStreamer writes records to a local file in JSON format line by line,

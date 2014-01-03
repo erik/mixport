@@ -1,12 +1,12 @@
 package streaming
 
 import (
-	"io"
-	"os"
-	"github.com/boredomist/mixport/mixpanel"
 	"encoding/csv"
-	"log"
 	"fmt"
+	"github.com/boredomist/mixport/mixpanel"
+	"io"
+	"log"
+	"os"
 )
 
 // CSVStreamer writes the records passed on the given chan in a schema-less

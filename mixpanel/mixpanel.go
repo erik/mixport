@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
-	"time"
-	"log"
-	"strings"
 	"sort"
+	"strings"
+	"time"
 )
 
 // The official base URL
@@ -56,16 +56,16 @@ func NewWithURL(product, key, secret, baseURL string) *Mixpanel {
 func (m *Mixpanel) addSignature(args *url.Values) {
 	hash := md5.New()
 
-        var params []string
-        for k, vs := range *args {
-                for _, v := range vs {
-                        params = append(params, fmt.Sprintf("%s=%s", k, v))
-                }
-        }
+	var params []string
+	for k, vs := range *args {
+		for _, v := range vs {
+			params = append(params, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
 
-        sort.StringSlice(params).Sort()
+	sort.StringSlice(params).Sort()
 
-	io.WriteString(hash, strings.Join(params, "") + m.Secret)
+	io.WriteString(hash, strings.Join(params, "")+m.Secret)
 
 	args.Set("sig", fmt.Sprintf("%x", hash.Sum(nil)))
 }
@@ -119,7 +119,7 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs
 
 	for {
 		var ev struct {
-			Error *string
+			Error      *string
 			Event      string
 			Properties map[string]interface{}
 		}
@@ -136,7 +136,6 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs
 		if _, ok := ev.Properties["distinct_id"]; !ok {
 			continue
 		}
-
 
 		ev.Properties["product"] = m.Product
 		ev.Properties["event"] = ev.Event

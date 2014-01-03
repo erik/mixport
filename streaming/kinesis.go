@@ -1,11 +1,11 @@
 package streaming
 
 import (
-	"fmt"
-	kinesis "github.com/sendgridlabs/go-kinesis"
-	"github.com/boredomist/mixport/mixpanel"
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"github.com/boredomist/mixport/mixpanel"
+	kinesis "github.com/sendgridlabs/go-kinesis"
 )
 
 // KinesisStreamer writes records to a Kinesis Stream
