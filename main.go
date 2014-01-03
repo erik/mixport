@@ -117,7 +117,7 @@ func main() {
 				wg.Add(1)
 				go func() {
 					streaming.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
-					wg.Done()
+					defer wg.Done()
 				}()
 			}
 
@@ -136,7 +136,7 @@ func main() {
 				wg.Add(1)
 				go func() {
 					streaming.JSONStreamer(fp, ch)
-					wg.Done()
+					defer wg.Done()
 				}()
 			}
 
@@ -155,7 +155,7 @@ func main() {
 				wg.Add(1)
 				go func() {
 					streaming.CSVStreamer(fp, ch)
-					wg.Done()
+					defer wg.Done()
 				}()
 			}
 
