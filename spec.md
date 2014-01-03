@@ -13,18 +13,18 @@ Basically, this should be set and forget.
 1. Process event data from Mixpanel line by line (received in the form
    `{"event": ..., "properties": {"k": v, ...}}`)
 2. Transform data into simplified `{"k": v, ...}`
-2. Attach `{"product": "PRODUCTNAME"}` to the JSON blob.
+2. Attach `{"product": "PRODUCTNAME"}` and a UUID event_id to the JSON blob.
 3. Move JSON blob into Kinesis stream/
 
 ### Transformer
 
 1. Receive record(s) from Kinesis.
 2. Decompose record into multiple SQL rows based on `key: value` mappings,
-   using the `distinct_id` field as the Id.
+   using the `event_id` field as the Id.
 
    i.e.:
 
    ```python
        for key, value in record:
-           INSERT INTO mixpanel (id, key, value) VALUES (record['distinct_id'], key, value)
+           INSERT INTO mixpanel (id, key, value) VALUES (record[event_id'], key, value)
    ```

@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"github.com/nu7hatch/gouuid"
 	"io"
 	"log"
 	"net/http"
@@ -15,6 +16,10 @@ import (
 
 // The official base URL
 const MixpanelBaseURL = "https://data.mixpanel.com/api/2.0/export"
+
+// Key into the EventData map that contains the UUID of this event. Name is
+// chosen to make collisions with actual keys very unlikely.
+const EventIDKey = "$__$$event_id"
 
 // Mixpanel struct represents a set of credentials used to access the Mixpanel
 // API for a particular product.
@@ -146,9 +151,10 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 			log.Fatalf("%s: Hit API error: %s", m.Product, *ev.Error)
 		}
 
-		// TODO: handle distinct_id not being present instead of skipping
-		if _, ok := ev.Properties["distinct_id"]; !ok {
-			continue
+		if id, err := uuid.NewV4(); err == nil {
+			ev.Properties[EventIDKey] = id.String()
+		} else {
+			log.Fatalf("%s: generating UUID failed: %s", err)
 		}
 
 		ev.Properties["product"] = m.Product
