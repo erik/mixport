@@ -71,12 +71,17 @@ func (m *Mixpanel) addSignature(args *url.Values) {
 }
 
 // Generate the initial, base arguments that all Mixpanel API requests use.
-func (m *Mixpanel) makeArgs() url.Values {
+func (m *Mixpanel) makeArgs(date time.Time) url.Values {
 	args := url.Values{}
 
 	args.Set("format", "json")
 	args.Set("api_key", m.Key)
 	args.Set("expire", fmt.Sprintf("%d", time.Now().Unix()+10000))
+
+	day := date.Format("2006-01-02")
+
+	args.Set("from_date", day)
+	args.Set("to_date", day)
 
 	return args
 }
@@ -87,8 +92,10 @@ func (m *Mixpanel) makeArgs() url.Values {
 //
 // The optional `moreArgs` parameter can be given to add additional URL
 // parameters to the API request.
-func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs *url.Values) {
-	args := m.makeArgs()
+func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs *url.Values) {
+	defer close(output)
+
+	args := m.makeArgs(date)
 
 	if moreArgs != nil {
 		for k, vs := range *moreArgs {
@@ -97,11 +104,6 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs
 			}
 		}
 	}
-
-	day := date.Format("2006-01-02")
-
-	args.Set("from_date", day)
-	args.Set("to_date", day)
 
 	m.addSignature(&args)
 
@@ -112,7 +114,19 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs
 		log.Fatalf("%s: XXX handle this: download failed: %s", m.Product, err)
 	}
 
-	decoder := json.NewDecoder(resp.Body)
+	m.TransformEventData(resp.Body, output)
+}
+
+// TransformEventData reads JSON objects line by line from `input`, performs a
+// simple translation, and pipes the result back out through the `output` chan.
+//
+// The transformation effectively folds the properties map into the top level
+// and attaches product information.
+//
+// Input : `{"event": "...", "properties": {"k": "v"}}`
+// Output: `{"event": "...", "product: "...", "k": "v", ...}`
+func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) {
+	decoder := json.NewDecoder(input)
 
 	// Don't default all numeric values to float
 	decoder.UseNumber()
@@ -140,9 +154,6 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs
 		ev.Properties["product"] = m.Product
 		ev.Properties["event"] = ev.Event
 
-		outChan <- ev.Properties
-
+		output <- ev.Properties
 	}
-
-	defer close(outChan)
 }
