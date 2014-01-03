@@ -118,11 +118,7 @@ func main() {
 					log.Fatalf("Couldn't create file: %s", err)
 				}
 
-				defer func() {
-					if err := fp.Close(); err != nil {
-						panic(err)
-					}
-				}()
+				defer fp.Close()
 
 				wg.Add(1)
 				go func() {
@@ -141,11 +137,7 @@ func main() {
 					log.Fatalf("Couldn't create file: %s", err)
 				}
 
-				defer func() {
-					if err := fp.Close(); err != nil {
-						panic(err)
-					}
-				}()
+				defer fp.Close()
 
 				wg.Add(1)
 				go func() {
