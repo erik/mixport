@@ -51,4 +51,62 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	cfg := configFormat{}
+	if err := gcfg.ReadFileInto(&cfg, configFile); err != nil {
+		log.Fatalf("Failed to load %s: %s", configFile, err)
+	}
+
+	var wg sync.WaitGroup
+
+	for product, creds := range cfg.Product {
+		wg.Add(1)
+		// Run each individual product in a new thread.
+		go func() {
+			defer wg.Done()
+
+			client := mixpanel.New(product, creds.Key, creds.Secret)
+			eventData := make(chan mixpanel.EventData)
+
+			// We need to mux eventData into multiple channels
+			var chans []chan mixpanel.EventData
+
+			if cfg.Kinesis.State {
+				// TODO: Call kinesis
+				// append(chans, make(chan mixpanel.EventData))
+			}
+
+			if cfg.JSON.State {
+				ch := make(chan mixpanel.EventData)
+				chans = append(chans, ch)
+
+				name := path.Join(cfg.JSON.Directory, product+".json")
+				go streaming.JSONStreamer(name, ch)
+			}
+
+			if cfg.CSV.State {
+				ch := make(chan mixpanel.EventData)
+				chans = append(chans, ch)
+
+				name := path.Join(cfg.JSON.Directory, product+".csv")
+				go streaming.CSVStreamer(name, ch)
+			}
+
+			// FIXME: need to be able to change dates
+			go client.ExportDate(time.Now(), eventData, nil)
+
+			for data := range eventData {
+				for _, ch := range chans {
+					ch <- data
+				}
+			}
+
+			for _, ch := range chans {
+				close(ch)
+			}
+		}()
+	}
+
+	// Wait for all our goroutines to finish up
+	wg.Wait()
 }

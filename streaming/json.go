@@ -5,6 +5,7 @@ import (
 	"os"
 	"encoding/json"
 	"github.com/boredomist/mixport/mixpanel"
+	"log"
 )
 
 // JSONStreamer writes records to a local file in JSON format line by line,
@@ -15,7 +16,7 @@ import (
 func JSONStreamer(name string, records <-chan mixpanel.EventData) {
 	fp, err := os.Create(name)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Couldn't create file: %s", err)
 	}
 
 	defer func() {
@@ -26,12 +27,8 @@ func JSONStreamer(name string, records <-chan mixpanel.EventData) {
 
 	encoder := json.NewEncoder(io.Writer(fp))
 
-	for {
-		if record, ok := <-records; !ok {
-			break
-		} else {
-			// FIXME: Does this write newlines?
-			encoder.Encode(record)
-		}
+	for record := range records {
+		// FIXME: Does this write newlines?
+		encoder.Encode(record)
 	}
 }

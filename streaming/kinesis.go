@@ -15,13 +15,7 @@ func KinesisStreamer(records <-chan mixpanel.EventData) {
 	args := kinesis.NewArgs()
 	args.Add("StreamName", "TODO")
 
-	for {
-		record, ok := <-records
-
-		if !ok {
-			break
-		}
-
+	for record := range records {
 		var buf bytes.Buffer
 		encoder := json.NewEncoder(&buf)
 		encoder.Encode(record)
