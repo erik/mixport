@@ -12,10 +12,6 @@ import (
 	"time"
 )
 
-const defaultConfig = "mixport.conf"
-
-var configFile string
-
 // Mixpanel API credentials, used by the configuration parser.
 type mixpanelCredentials struct {
 	Key    string
@@ -46,13 +42,26 @@ type configFormat struct {
 	}
 }
 
+const (
+	defaultConfig = "mixport.conf"
+	defaultDate   = ""
+)
+
+var configFile string
+var dateString string
+
 func init() {
 	// XXX: This one goes to 11.
 	runtime.GOMAXPROCS(runtime.NumCPU() * 5)
 
-	const confUsage = "path to configuration file"
+	const (
+		confUsage = "path to configuration file"
+		dateUsage = "date (YYYY-MM-DD) of data to pull, default is yesterday"
+	)
 	flag.StringVar(&configFile, "config", defaultConfig, confUsage)
-	flag.StringVar(&configFile, "c", defaultConfig, confUsage+"(shorthand)")
+	flag.StringVar(&configFile, "c", defaultConfig, confUsage)
+	flag.StringVar(&dateString, "date", defaultDate, dateUsage)
+	flag.StringVar(&dateString, "d", defaultDate, dateUsage)
 }
 
 func main() {
@@ -61,6 +70,20 @@ func main() {
 	cfg := configFormat{}
 	if err := gcfg.ReadFileInto(&cfg, configFile); err != nil {
 		log.Fatalf("Failed to load %s: %s", configFile, err)
+	}
+
+	var exportDate time.Time
+
+	// Default to yesterday (should be newest available data)
+	if dateString == "" {
+		exportDate = time.Now().UTC().AddDate(0, 0, -1)
+	} else {
+		if d, err := time.Parse("2006-01-02", dateString); err != nil {
+			log.Fatalf("Invalid date: %s, should be in YYYY-MM-DD format",
+				dateString)
+		} else {
+			exportDate = d
+		}
 	}
 
 	// WaitGroup will hold the process open until all of the child
@@ -101,7 +124,7 @@ func main() {
 			}
 
 			// FIXME: need to be able to change dates
-			go client.ExportDate(time.Now().UTC().AddDate(0, -1, 0), eventData, nil)
+			go client.ExportDate(exportDate, eventData, nil)
 
 			for data := range eventData {
 				for _, ch := range chans {
