@@ -4,8 +4,8 @@ import (
 	"code.google.com/p/gcfg"
 	"compress/gzip"
 	"flag"
+	"github.com/boredomist/mixport/exports"
 	"github.com/boredomist/mixport/mixpanel"
-	"github.com/boredomist/mixport/streaming"
 	kinesis "github.com/sendgridlabs/go-kinesis"
 	"io"
 	"log"
@@ -118,7 +118,7 @@ func main() {
 
 				wg.Add(1)
 				go func() {
-					streaming.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
+					exports.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
 					defer wg.Done()
 				}()
 			}
@@ -157,11 +157,11 @@ func main() {
 			}
 
 			if cfg.JSON.State {
-				setupFileExportStream(cfg.JSON, ".json", streaming.JSONStreamer)
+				setupFileExportStream(cfg.JSON, ".json", exports.JSONStreamer)
 			}
 
 			if cfg.CSV.State {
-				setupFileExportStream(cfg.CSV, ".csv", streaming.CSVStreamer)
+				setupFileExportStream(cfg.CSV, ".csv", exports.CSVStreamer)
 			}
 
 			go client.ExportDate(exportDate, eventData, nil)
