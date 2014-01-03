@@ -5,28 +5,16 @@ import (
 	"fmt"
 	"github.com/boredomist/mixport/mixpanel"
 	"io"
-	"log"
-	"os"
 )
 
 // CSVStreamer writes the records passed on the given chan in a schema-less
-// way.
+// way. An initial header row containing the names of the columns is written
+// first.
 //
 // Format is:
 //    distinct_id,key,value
-func CSVStreamer(name string, records <-chan mixpanel.EventData) {
-	fp, err := os.Create(name)
-	if err != nil {
-		log.Fatalf("Couldn't create file: %s", err)
-	}
-
-	defer func() {
-		if err := fp.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	writer := csv.NewWriter(io.Writer(fp))
+func CSVStreamer(w io.Writer, records <-chan mixpanel.EventData) {
+	writer := csv.NewWriter(w)
 
 	// Write the header
 	writer.Write([]string{"distinct_id", "key", "value"})

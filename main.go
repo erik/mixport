@@ -6,6 +6,7 @@ import (
 	"github.com/boredomist/mixport/mixpanel"
 	"github.com/boredomist/mixport/streaming"
 	"log"
+	"os"
 	"path"
 	"runtime"
 	"sync"
@@ -112,7 +113,22 @@ func main() {
 				chans = append(chans, ch)
 
 				name := path.Join(cfg.JSON.Directory, product+".json")
-				go streaming.JSONStreamer(name, ch)
+				fp, err := os.Create(name)
+				if err != nil {
+					log.Fatalf("Couldn't create file: %s", err)
+				}
+
+				defer func() {
+					if err := fp.Close(); err != nil {
+						panic(err)
+					}
+				}()
+
+				wg.Add(1)
+				go func() {
+					streaming.JSONStreamer(fp, ch)
+					wg.Done()
+				}()
 			}
 
 			if cfg.CSV.State {
@@ -120,7 +136,22 @@ func main() {
 				chans = append(chans, ch)
 
 				name := path.Join(cfg.JSON.Directory, product+".csv")
-				go streaming.CSVStreamer(name, ch)
+				fp, err := os.Create(name)
+				if err != nil {
+					log.Fatalf("Couldn't create file: %s", err)
+				}
+
+				defer func() {
+					if err := fp.Close(); err != nil {
+						panic(err)
+					}
+				}()
+
+				wg.Add(1)
+				go func() {
+					streaming.CSVStreamer(fp, ch)
+					wg.Done()
+				}()
 			}
 
 			go client.ExportDate(exportDate, eventData, nil)
@@ -134,10 +165,6 @@ func main() {
 			for _, ch := range chans {
 				close(ch)
 			}
-
-			// XXX: It's completely possible for execution to die
-			// here before all of the channels have time to finish
-			// processing. Need another waitgroup, maybe
 		}(product, *creds)
 	}
 
