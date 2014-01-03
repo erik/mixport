@@ -8,10 +8,14 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"log"
+	"strings"
+	"sort"
+	"bufio"
 )
 
 // The official base URL
-const MixpanelBaseURL = "http://mixpanel.com/api"
+const MixpanelBaseURL = "https://data.mixpanel.com/api/2.0/export"
 
 // Mixpanel struct represents a set of credentials used to access the Mixpanel
 // API for a particular product.
@@ -44,12 +48,27 @@ func NewWithURL(product, key, secret, baseURL string) *Mixpanel {
 }
 
 // Add the cryptographic signature that Mixpanel API requests require.
+//
+// Algorithm:
+// - join key=value pairs
+// - sort the pairs alphabetically
+// - appending a secret
+// - take MD5 hex digest.
 func (m *Mixpanel) addSignature(args *url.Values) {
 	hash := md5.New()
-	io.WriteString(hash, args.Encode())
-	io.WriteString(hash, m.Secret)
 
-	args.Set("sig", string(hash.Sum(nil)))
+        var params []string
+        for k, vs := range *args {
+                for _, v := range vs {
+                        params = append(params, fmt.Sprintf("%s=%s", k, v))
+                }
+        }
+
+        sort.StringSlice(params).Sort()
+
+	io.WriteString(hash, strings.Join(params, "") + m.Secret)
+
+	args.Set("sig", fmt.Sprintf("%x", hash.Sum(nil)))
 }
 
 // Generate the initial, base arguments that all Mixpanel API requests use.
@@ -58,7 +77,7 @@ func (m *Mixpanel) makeArgs() url.Values {
 
 	args.Set("format", "json")
 	args.Set("api_key", m.Key)
-	args.Set("expire", string(time.Now().Unix()+10000))
+	args.Set("expire", fmt.Sprintf("%d", time.Now().Unix()+10000))
 
 	return args
 }
@@ -81,36 +100,48 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs
 	}
 
 	day := date.Format("2006-01-02")
-	args.Set("start", day)
-	args.Set("end", day)
+
+	args.Set("from_date", day)
+	args.Set("to_date", day)
 
 	m.addSignature(&args)
 
-	resp, err := http.Get(fmt.Sprintf("%s/2.0/export?%s", m.BaseURL, args.Encode()))
+	resp, err := http.Get(fmt.Sprintf("%s?%s", m.BaseURL, args.Encode()))
+	defer resp.Body.Close()
+
 	if err != nil {
-		panic("XXX handle this: download FAILED")
+		log.Fatalf("XXX handle this: download failed: %s", err)
 	}
 
-	type JSONEvent struct {
-		event      string
-		properties map[string]interface{}
-	}
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var ev struct {
+			Error *string
+			Event      string
+			Properties map[string]interface{}
+		}
 
-	decoder := json.NewDecoder(resp.Body)
-	for {
-		var ev JSONEvent
-		if err := decoder.Decode(&ev); err == io.EOF {
-			break
-		} else if err != nil {
-			// TODO: handle {"error": "..."} responses more gracefully?
-			panic(err)
+		line := scanner.Text()
+
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			log.Fatalf("Failed to parse JSON: %s", err)
+		} else if ev.Error != nil {
+			log.Fatalf("Hit API error: %s", ev.Error)
 		}
 
 		// TODO: ensure that distinct_id is present (even though it should be)
-		props := ev.properties
-		props["product"] = m.Product
-		props["event"] = ev.event
 
-		outChan <- props
+		ev.Properties["product"] = m.Product
+		ev.Properties["event"] = ev.Event
+
+		outChan <- ev.Properties
+
 	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatalf("Error reading response: %s", err)
+	}
+
+
+	defer close(outChan)
 }

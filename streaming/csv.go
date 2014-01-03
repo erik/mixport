@@ -6,6 +6,7 @@ import (
 	"github.com/boredomist/mixport/mixpanel"
 	"encoding/csv"
 	"log"
+	"fmt"
 )
 
 // CSVStreamer writes the records passed on the given chan in a schema-less
@@ -38,7 +39,7 @@ func CSVStreamer(name string, records <-chan mixpanel.EventData) {
 				continue
 			}
 
-			writer.Write([]string{id, key, value.(string)})
+			writer.Write([]string{id, key, fmt.Sprintf("%s", value)})
 		}
 	}
 }

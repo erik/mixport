@@ -7,6 +7,7 @@ import (
 	"github.com/boredomist/mixport/streaming"
 	"log"
 	"path"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -44,6 +45,9 @@ type configFormat struct {
 }
 
 func init() {
+	// XXX: This one goes to 11.
+	runtime.GOMAXPROCS(runtime.NumCPU() * 5)
+
 	const confUsage = "path to configuration file"
 	flag.StringVar(&configFile, "config", defaultConfig, confUsage)
 	flag.StringVar(&configFile, "c", defaultConfig, confUsage+"(shorthand)")
@@ -57,10 +61,12 @@ func main() {
 		log.Fatalf("Failed to load %s: %s", configFile, err)
 	}
 
+	// WaitGroup will hold the process open until all of the child
+	// goroutines have completed execution.
 	var wg sync.WaitGroup
+	wg.Add(len(cfg.Product))
 
 	for product, creds := range cfg.Product {
-		wg.Add(1)
 		// Run each individual product in a new thread.
 		go func() {
 			defer wg.Done()
@@ -93,7 +99,7 @@ func main() {
 			}
 
 			// FIXME: need to be able to change dates
-			go client.ExportDate(time.Now(), eventData, nil)
+			go client.ExportDate(time.Now().UTC().AddDate(0, -1, 0), eventData, nil)
 
 			for data := range eventData {
 				for _, ch := range chans {
@@ -104,6 +110,10 @@ func main() {
 			for _, ch := range chans {
 				close(ch)
 			}
+
+			// XXX: It's completely possible for execution to die
+			// here before all of the channels have time to finish
+			// processing. Need another waitgroup, maybe
 		}()
 	}
 
