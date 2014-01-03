@@ -11,8 +11,8 @@ import (
 // JSONStreamer writes records to a local file in JSON format line by line,
 // simply serializing the JSON directly.
 //
-// Format is simply: `{"key": "value", ...}`, where all `value`s are scalar
-// (i.e. not maps or vectors).
+// Format is simply: `{"key": "value", ...}`. `value` should never be a map,
+// but may be a vector. Most values are scalar.
 func JSONStreamer(name string, records <-chan mixpanel.EventData) {
 	fp, err := os.Create(name)
 	if err != nil {
@@ -28,7 +28,6 @@ func JSONStreamer(name string, records <-chan mixpanel.EventData) {
 	encoder := json.NewEncoder(io.Writer(fp))
 
 	for record := range records {
-		// FIXME: Does this write newlines?
 		encoder.Encode(record)
 	}
 }
