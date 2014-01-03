@@ -1,7 +1,6 @@
 package mixpanel
 
 import (
-	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -23,10 +22,14 @@ type Mixpanel struct {
 	BaseURL string
 }
 
+// EventData is a representation of each individual JSON record spit out of the
+// export process.
+type EventData map[string]interface{}
+
 // New creates a Mixpanel object with the given API credentials and uses the
 // official API URL.
 func New(product, key, secret string) *Mixpanel {
-	return NewWithUrl(product, key, secret, MixpanelBaseURL)
+	return NewWithURL(product, key, secret, MixpanelBaseURL)
 }
 
 // NewWithURL creates a Mixpanel object with the given API credentials and a
@@ -66,8 +69,8 @@ func (m *Mixpanel) makeArgs() url.Values {
 //
 // The optional `moreArgs` parameter can be given to add additional URL
 // parameters to the API request.
-func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *url.Values) {
-	args := m.MakeArgs()
+func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- EventData, moreArgs *url.Values) {
+	args := m.makeArgs()
 
 	if moreArgs != nil {
 		for k, vs := range *moreArgs {
@@ -81,11 +84,11 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *u
 	args.Set("start", day)
 	args.Set("end", day)
 
-	m.AddSignature(&args)
+	m.addSignature(&args)
 
 	resp, err := http.Get(fmt.Sprintf("%s/2.0/export?%s", m.BaseURL, args.Encode()))
 	if err != nil {
-		panic("XXX handle this. FAILED")
+		panic("XXX handle this: download FAILED")
 	}
 
 	type JSONEvent struct {
@@ -108,10 +111,6 @@ func (m *Mixpanel) ExportDate(date time.Time, outChan chan<- []byte, moreArgs *u
 		props["product"] = m.Product
 		props["event"] = ev.event
 
-		var buf bytes.Buffer
-		encoder := json.NewEncoder(&buf)
-		encoder.Encode(props)
-
-		output <- buf.Bytes()
+		outChan <- props
 	}
 }
