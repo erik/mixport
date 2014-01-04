@@ -55,24 +55,30 @@ const (
 
 var configFile string
 var dateString string
+var maxProcs int
 
 func init() {
-	// XXX: This one goes to 11.
-	runtime.GOMAXPROCS(runtime.NumCPU() * 5)
-
 	const (
 		confUsage = "path to configuration file"
 		dateUsage = "date (YYYY-MM-DD) of data to pull, default is yesterday"
+		procUsage = "maximum number of M:N threads to spawn. These will be IO bound."
 	)
+
+	// TODO: Tune this.
+	defaultProcs := runtime.NumCPU() * 4
 
 	flag.StringVar(&configFile, "config", defaultConfig, confUsage)
 	flag.StringVar(&configFile, "c", defaultConfig, confUsage)
 	flag.StringVar(&dateString, "date", defaultDate, dateUsage)
 	flag.StringVar(&dateString, "d", defaultDate, dateUsage)
+	flag.IntVar(&maxProcs, "procs", defaultProcs, procUsage)
+	flag.IntVar(&maxProcs, "p", defaultProcs, procUsage)
 }
 
 func main() {
 	flag.Parse()
+
+	runtime.GOMAXPROCS(maxProcs)
 
 	cfg := configFormat{}
 	if err := gcfg.ReadFileInto(&cfg, configFile); err != nil {
