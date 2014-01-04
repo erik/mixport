@@ -4,11 +4,14 @@ state = on
 directory = /path/to/download/dir
 # If true, file will be compressed with gzip.
 gzip = on
+# If true, all writes will be to named pipes rather than files
+fifo = false
 
 [json]
 state = on
 directory = /path/to/download/dir
 gzip = on
+fifo = false
 
 [kinesis]
 state = off

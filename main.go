@@ -13,6 +13,7 @@ import (
 	"path"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -27,6 +28,7 @@ type mixpanelCredentials struct {
 type fileExportConfig struct {
 	State     bool
 	Gzip      bool
+	Fifo      bool
 	Directory string
 }
 
@@ -135,6 +137,12 @@ func main() {
 					name += ".gz"
 				}
 
+				if conf.Fifo {
+					if err := syscall.Mkfifo(name, syscall.S_IRWXU); err != nil {
+						log.Fatalf("Couldn't create named pipe: %s", err)
+					}
+				}
+
 				fp, err := os.Create(name)
 				if err != nil {
 					log.Fatalf("Couldn't create file: %s", err)
@@ -142,6 +150,16 @@ func main() {
 
 				wg.Add(1)
 				go func(fp *os.File) {
+					defer func() {
+						fp.Close()
+
+						// Remove named pipes, as they're useless at this point
+						if conf.Fifo {
+							os.Remove(name)
+						}
+
+						wg.Done()
+					}()
 
 					var writer io.Writer
 					if conf.Gzip {
@@ -151,8 +169,7 @@ func main() {
 					}
 
 					streamer(writer, ch)
-					defer fp.Close()
-					defer wg.Done()
+
 				}(fp)
 			}
 
