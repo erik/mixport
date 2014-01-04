@@ -34,6 +34,12 @@ type fileExportConfig struct {
 
 // configFormat is the in-memory representation of the mixport configuration
 // file.
+//
+// - `Product` is Mixpanel API credential information for each product that will be
+//   exported.
+// - `Kinesis` is access keys and configuration for Amazon Kinesis exporter.
+// - `JSON` and `CSV` are the configuration setups for the `JSON` and `CSV`
+//   exporters, respectively.
 type configFormat struct {
 	Product map[string]*mixpanelCredentials
 	Kinesis struct {
@@ -53,15 +59,17 @@ const (
 	defaultDate   = ""
 )
 
-var configFile string
-var dateString string
-var maxProcs int
+var (
+	configFile string
+	dateString string
+	maxProcs   int
+)
 
 func init() {
 	const (
 		confUsage = "path to configuration file"
 		dateUsage = "date (YYYY-MM-DD) of data to pull, default is yesterday"
-		procUsage = "maximum number of M:N threads to spawn. These will be IO bound."
+		procUsage = "maximum number of OS threads to spawn. These will be IO bound."
 	)
 
 	// TODO: Tune this.
@@ -112,7 +120,9 @@ func main() {
 			client := mixpanel.New(product, creds.Key, creds.Secret)
 			eventData := make(chan mixpanel.EventData)
 
-			// We need to mux eventData into multiple channels
+			// We need to mux eventData into multiple channels to
+			// ensure all export funcs have a chance to see each event
+			// instance.
 			var chans []chan mixpanel.EventData
 
 			if cfg.Kinesis.State {
@@ -155,15 +165,13 @@ func main() {
 				}
 
 				wg.Add(1)
+				// FIXME: Is it necessary to pass in fp as a param?
 				go func(fp *os.File) {
 					defer func() {
 						fp.Close()
-
-						// Remove named pipes, as they're useless at this point
 						if conf.Fifo {
 							os.Remove(name)
 						}
-
 						wg.Done()
 					}()
 
@@ -175,7 +183,6 @@ func main() {
 					}
 
 					streamer(writer, ch)
-
 				}(fp)
 			}
 
@@ -189,12 +196,18 @@ func main() {
 
 			go client.ExportDate(exportDate, eventData, nil)
 
+			// Multiplex each received event to each of the active
+			// export functions.
 			for data := range eventData {
 				for _, ch := range chans {
 					ch <- data
 				}
 			}
 
+			// Closing all the channels will signal the streaming
+			// export functions that they've reached the end of the
+			// stream and should terminate as soon as the channel is
+			// drained.
 			for _, ch := range chans {
 				close(ch)
 			}

@@ -41,7 +41,9 @@ func New(product, key, secret string) *Mixpanel {
 }
 
 // NewWithURL creates a Mixpanel object with the given API credentials and a
-// custom Mixpanel API URL. (I doubt this will ever be useful but there you go)
+// custom Mixpanel API URL.
+//
+// I doubt this will ever be useful but there you go.
 func NewWithURL(product, key, secret, baseURL string) *Mixpanel {
 	m := new(Mixpanel)
 	m.Product = product
@@ -75,7 +77,8 @@ func (m *Mixpanel) addSignature(args *url.Values) {
 	args.Set("sig", fmt.Sprintf("%x", hash.Sum(nil)))
 }
 
-// Generate the initial, base arguments that all Mixpanel API requests use.
+// Generate the initial, base arguments that should be common to all Mixpanel
+// API requests being created here.
 func (m *Mixpanel) makeArgs(date time.Time) url.Values {
 	args := url.Values{}
 
