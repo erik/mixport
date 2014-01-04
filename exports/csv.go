@@ -35,8 +35,17 @@ func CSVStreamer(w io.Writer, records <-chan mixpanel.EventData) {
 				continue
 			}
 
-			// FIXME: This probably doesn't handle nil correctly.
-			writer.Write([]string{id, key, fmt.Sprintf("%v", value)})
+			var repr string
+			switch value.(type) {
+			case nil:
+				repr = ""
+			default:
+				repr = fmt.Sprintf("%v", value)
+			}
+
+			writer.Write([]string{id, key, repr})
 		}
 	}
+
+	writer.Flush()
 }
