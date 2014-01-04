@@ -165,25 +165,28 @@ func main() {
 				}
 
 				wg.Add(1)
-				// FIXME: Is it necessary to pass in fp as a param?
-				go func(fp *os.File) {
+				go func() {
 					defer func() {
 						fp.Close()
 						if conf.Fifo {
 							os.Remove(name)
 						}
+
 						wg.Done()
 					}()
 
 					var writer io.Writer
 					if conf.Gzip {
 						writer = gzip.NewWriter(fp)
+
+						defer (writer).(*gzip.Writer).Close()
+						defer (writer).(*gzip.Writer).Flush()
 					} else {
 						writer = fp
 					}
 
 					streamer(writer, ch)
-				}(fp)
+				}()
 			}
 
 			if cfg.JSON.State {

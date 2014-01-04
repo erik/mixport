@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/boredomist/mixport/mixpanel"
-	"testing"
 	"io/ioutil"
+	"testing"
 )
 
 func TestCSVStreamer(t *testing.T) {

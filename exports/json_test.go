@@ -2,11 +2,11 @@ package exports
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/boredomist/mixport/mixpanel"
-	"testing"
 	"io/ioutil"
-	"encoding/json"
+	"testing"
 )
 
 func TestJSONtreamer(t *testing.T) {
