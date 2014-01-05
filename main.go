@@ -83,6 +83,10 @@ func init() {
 	flag.IntVar(&maxProcs, "p", defaultProcs, procUsage)
 }
 
+var (
+	cfg = configFormat{}
+)
+
 func main() {
 	flag.Parse()
 
@@ -114,109 +118,102 @@ func main() {
 
 	for product, creds := range cfg.Product {
 		// Run each individual product in a new thread.
-		go func(product string, creds mixpanelCredentials) {
-			defer wg.Done()
-
-			client := mixpanel.New(product, creds.Key, creds.Secret)
-			eventData := make(chan mixpanel.EventData)
-
-			// We need to mux eventData into multiple channels to
-			// ensure all export funcs have a chance to see each event
-			// instance.
-			var chans []chan mixpanel.EventData
-
-			if cfg.Kinesis.State {
-				ch := make(chan mixpanel.EventData)
-				chans = append(chans, ch)
-
-				ksis := kinesis.New(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey)
-				if cfg.Kinesis.Region != "" {
-					ksis.Region = "us-east-1"
-				}
-
-				wg.Add(1)
-				go func() {
-					exports.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
-					defer wg.Done()
-				}()
-			}
-
-			type streamFunc func(io.Writer, <-chan mixpanel.EventData)
-
-			// Generalize setup of JSON and CSV streams into a single function.
-			setupFileExportStream := func(conf fileExportConfig, ext string, streamer streamFunc) {
-				ch := make(chan mixpanel.EventData)
-				chans = append(chans, ch)
-
-				name := path.Join(conf.Directory, product+ext)
-				if conf.Gzip {
-					name += ".gz"
-				}
-
-				if conf.Fifo {
-					if err := syscall.Mkfifo(name, syscall.S_IRWXU); err != nil {
-						log.Fatalf("Couldn't create named pipe: %s", err)
-					}
-				}
-
-				fp, err := os.Create(name)
-				if err != nil {
-					log.Fatalf("Couldn't create file: %s", err)
-				}
-
-				wg.Add(1)
-				go func() {
-					defer func() {
-						fp.Close()
-						if conf.Fifo {
-							os.Remove(name)
-						}
-
-						wg.Done()
-					}()
-
-					var writer io.Writer
-					if conf.Gzip {
-						writer = gzip.NewWriter(fp)
-
-						defer (writer).(*gzip.Writer).Close()
-						defer (writer).(*gzip.Writer).Flush()
-					} else {
-						writer = fp
-					}
-
-					streamer(writer, ch)
-				}()
-			}
-
-			if cfg.JSON.State {
-				setupFileExportStream(cfg.JSON, ".json", exports.JSONStreamer)
-			}
-
-			if cfg.CSV.State {
-				setupFileExportStream(cfg.CSV, ".csv", exports.CSVStreamer)
-			}
-
-			go client.ExportDate(exportDate, eventData, nil)
-
-			// Multiplex each received event to each of the active
-			// export functions.
-			for data := range eventData {
-				for _, ch := range chans {
-					ch <- data
-				}
-			}
-
-			// Closing all the channels will signal the streaming
-			// export functions that they've reached the end of the
-			// stream and should terminate as soon as the channel is
-			// drained.
-			for _, ch := range chans {
-				close(ch)
-			}
-		}(product, *creds)
+		go exportProduct(exportDate, product, *creds, &wg)
 	}
 
 	// Wait for all our goroutines to finish up
 	wg.Wait()
+}
+
+func exportProduct(exportDate time.Time, product string, creds mixpanelCredentials, wg *sync.WaitGroup) {
+	client := mixpanel.New(product, creds.Key, creds.Secret)
+	eventData := make(chan mixpanel.EventData)
+
+	// We need to mux eventData into multiple channels to
+	// ensure all export funcs have a chance to see each event
+	// instance.
+	var chans []chan mixpanel.EventData
+
+	if cfg.Kinesis.State {
+		ch := make(chan mixpanel.EventData)
+		chans = append(chans, ch)
+
+		ksis := kinesis.New(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey)
+		if cfg.Kinesis.Region != "" {
+			ksis.Region = "us-east-1"
+		}
+
+		wg.Add(1)
+		go func() {
+			exports.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
+			defer wg.Done()
+		}()
+	}
+
+	type streamFunc func(io.Writer, <-chan mixpanel.EventData)
+
+	// Generalize setup of JSON and CSV streams into a single function.
+	setupFileExportStream := func(conf fileExportConfig, ext string, streamer streamFunc) {
+		wg.Add(1)
+		defer wg.Done()
+
+		ch := make(chan mixpanel.EventData)
+		chans = append(chans, ch)
+
+		name := path.Join(conf.Directory, product+ext)
+		if conf.Gzip {
+			name += ".gz"
+		}
+
+		if conf.Fifo {
+			if err := syscall.Mkfifo(name, syscall.S_IRWXU); err != nil {
+				log.Fatalf("Couldn't create named pipe: %s", err)
+			}
+		}
+
+		fp, err := os.Create(name)
+		if err != nil {
+			log.Fatalf("Couldn't create file: %s", err)
+		}
+
+		if conf.Fifo {
+			defer os.Remove(name)
+		}
+		defer fp.Close()
+
+		writer := (io.Writer)(fp)
+		if conf.Gzip {
+			writer = gzip.NewWriter(fp)
+			defer (writer).(*gzip.Writer).Close()
+		} else {
+			writer = fp
+		}
+
+		streamer(writer, ch)
+	}
+
+	if cfg.JSON.State {
+		go setupFileExportStream(cfg.JSON, ".json", exports.JSONStreamer)
+	}
+
+	if cfg.CSV.State {
+		go setupFileExportStream(cfg.CSV, ".csv", exports.CSVStreamer)
+	}
+
+	go client.ExportDate(exportDate, eventData, nil)
+
+	// Multiplex each received event to each of the active export
+	// functions.
+	for data := range eventData {
+		for _, ch := range chans {
+			ch <- data
+		}
+	}
+
+	// Closing all the channels will signal the streaming export functions
+	// that they've reached the end of the stream and should terminate as
+	// soon as the channel is drained.
+	for _, ch := range chans {
+		close(ch)
+	}
 }
