@@ -4,6 +4,7 @@ import (
 	"code.google.com/p/gcfg"
 	"compress/gzip"
 	"flag"
+	"fmt"
 	"github.com/boredomist/mixport/exports"
 	"github.com/boredomist/mixport/mixpanel"
 	kinesis "github.com/sendgridlabs/go-kinesis"
@@ -187,10 +188,19 @@ func exportProduct(start, end time.Time, product string, creds mixpanelCredentia
 		ch := make(chan mixpanel.EventData)
 		chans = append(chans, ch)
 
-		name := path.Join(conf.Directory, product+ext)
 		if conf.Gzip {
-			name += ".gz"
+			ext += ".gz"
 		}
+
+		timeFmt := "20060102"
+		stamp := start.Format(timeFmt)
+
+		// Append end date to timestamp if we're using a date range.
+		if start != end {
+			stamp += fmt.Sprintf("-%s", end.Format(timeFmt))
+		}
+
+		name := path.Join(conf.Directory, fmt.Sprintf("%s-%s.%s", product, stamp, ext))
 
 		if conf.Fifo {
 			if err := syscall.Mkfifo(name, syscall.S_IRWXU); err != nil {
@@ -220,11 +230,11 @@ func exportProduct(start, end time.Time, product string, creds mixpanelCredentia
 	}
 
 	if cfg.JSON.State {
-		go setupFileExportStream(cfg.JSON, ".json", exports.JSONStreamer)
+		go setupFileExportStream(cfg.JSON, "json", exports.JSONStreamer)
 	}
 
 	if cfg.CSV.State {
-		go setupFileExportStream(cfg.CSV, ".csv", exports.CSVStreamer)
+		go setupFileExportStream(cfg.CSV, "csv", exports.CSVStreamer)
 	}
 
 	go func() {
