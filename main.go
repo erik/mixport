@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -54,38 +55,36 @@ type configFormat struct {
 	CSV  fileExportConfig
 }
 
-const (
-	defaultConfig = "mixport.conf"
-	defaultDate   = ""
-)
-
 var (
-	configFile string
-	dateString string
-	maxProcs   int
+	configFile  string
+	dateString  string
+	rangeString string
+	maxProcs    int
 )
 
 func init() {
 	const (
-		confUsage = "path to configuration file"
-		dateUsage = "date (YYYY-MM-DD) of data to pull, default is yesterday"
-		procUsage = "maximum number of OS threads to spawn. These will be IO bound."
+		confUsage  = "path to configuration file"
+		dateUsage  = "date (YYYY/MM/DD) of data to pull, default is yesterday"
+		rangeUsage = "date range (YYYY/MM/DD-YYYY/MM/DD) of data to pull."
+		procUsage  = "maximum number of OS threads to spawn. These will be IO bound."
 	)
 
 	// TODO: Tune this.
 	defaultProcs := runtime.NumCPU() * 4
+	defaultConfig := "./mixport.conf"
 
 	flag.StringVar(&configFile, "config", defaultConfig, confUsage)
 	flag.StringVar(&configFile, "c", defaultConfig, confUsage)
-	flag.StringVar(&dateString, "date", defaultDate, dateUsage)
-	flag.StringVar(&dateString, "d", defaultDate, dateUsage)
+	flag.StringVar(&dateString, "date", "", dateUsage)
+	flag.StringVar(&dateString, "d", "", dateUsage)
+	flag.StringVar(&rangeString, "range", "", rangeUsage)
+	flag.StringVar(&rangeString, "r", "", rangeUsage)
 	flag.IntVar(&maxProcs, "procs", defaultProcs, procUsage)
 	flag.IntVar(&maxProcs, "p", defaultProcs, procUsage)
 }
 
-var (
-	cfg = configFormat{}
-)
+var cfg = configFormat{}
 
 func main() {
 	flag.Parse()
@@ -96,18 +95,45 @@ func main() {
 		log.Fatalf("Failed to load %s: %s", configFile, err)
 	}
 
-	var exportDate time.Time
+	var exportStart, exportEnd time.Time
 
 	// Default to yesterday (should be newest available data)
 	if dateString == "" {
-		exportDate = time.Now().UTC().AddDate(0, 0, -1)
+		year, month, day := time.Now().UTC().AddDate(0, 0, -1).Date()
+
+		exportStart = time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+		exportEnd = exportStart
 	} else {
-		if d, err := time.Parse("2006-01-02", dateString); err != nil {
-			log.Fatalf("Invalid date: %s, should be in YYYY-MM-DD format",
+		if d, err := time.Parse("2006/01/02", dateString); err != nil {
+			log.Fatalf("Invalid date: %s, should be in YYYY/MM/DD format",
 				dateString)
 		} else {
-			exportDate = d
+			exportStart = d
+			exportEnd = exportStart
 		}
+	}
+
+	if rangeString != "" {
+		formatError := func() {
+			log.Fatalf("Invalid range: %s, should be YYYY/MM/DD-YYYY/MM/DD.", rangeString)
+		}
+
+		parts := strings.Split(rangeString, "-")
+
+		if len(parts) != 2 {
+			formatError()
+		}
+
+		var err error
+
+		if exportStart, err = time.Parse("2006/01/02", parts[0]); err != nil {
+			formatError()
+		}
+
+		if exportEnd, err = time.Parse("2006/01/02", parts[1]); err != nil {
+			formatError()
+		}
+
 	}
 
 	// WaitGroup will hold the process open until all of the child
@@ -117,14 +143,14 @@ func main() {
 
 	for product, creds := range cfg.Product {
 		// Run each individual product in a new thread.
-		go exportProduct(exportDate, product, *creds, &wg)
+		go exportProduct(exportStart, exportEnd, product, *creds, &wg)
 	}
 
 	// Wait for all our goroutines to finish up
 	wg.Wait()
 }
 
-func exportProduct(exportDate time.Time, product string, creds mixpanelCredentials, wg *sync.WaitGroup) {
+func exportProduct(exportStart, exportEnd time.Time, product string, creds mixpanelCredentials, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	client := mixpanel.New(product, creds.Key, creds.Secret)
@@ -201,7 +227,14 @@ func exportProduct(exportDate time.Time, product string, creds mixpanelCredentia
 		go setupFileExportStream(cfg.CSV, ".csv", exports.CSVStreamer)
 	}
 
-	go client.ExportDate(exportDate, eventData, nil)
+	go func() {
+		// We want it to be start-end inclusive, so add one day to end date.
+		exportEnd = exportEnd.AddDate(0, 0, 1)
+
+		for date := exportStart; date.Before(exportEnd); date = date.AddDate(0, 0, 1) {
+			client.ExportDate(date, eventData, nil)
+		}
+	}()
 
 	// Multiplex each received event to each of the active export
 	// functions.
