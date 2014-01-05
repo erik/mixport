@@ -150,7 +150,7 @@ func main() {
 	wg.Wait()
 }
 
-func exportProduct(exportStart, exportEnd time.Time, product string, creds mixpanelCredentials, wg *sync.WaitGroup) {
+func exportProduct(start, end time.Time, product string, creds mixpanelCredentials, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	client := mixpanel.New(product, creds.Key, creds.Secret)
@@ -228,10 +228,12 @@ func exportProduct(exportStart, exportEnd time.Time, product string, creds mixpa
 	}
 
 	go func() {
-		// We want it to be start-end inclusive, so add one day to end date.
-		exportEnd = exportEnd.AddDate(0, 0, 1)
+		defer close(eventData)
 
-		for date := exportStart; date.Before(exportEnd); date = date.AddDate(0, 0, 1) {
+		// We want it to be start-end inclusive, so add one day to end date.
+		end = end.AddDate(0, 0, 1)
+
+		for date := start; date.Before(end); date = date.AddDate(0, 0, 1) {
 			client.ExportDate(date, eventData, nil)
 		}
 	}()

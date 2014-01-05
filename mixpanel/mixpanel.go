@@ -101,8 +101,6 @@ func (m *Mixpanel) makeArgs(date time.Time) url.Values {
 // The optional `moreArgs` parameter can be given to add additional URL
 // parameters to the API request.
 func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs *url.Values) {
-	defer close(output)
-
 	args := m.makeArgs(date)
 
 	if moreArgs != nil {
