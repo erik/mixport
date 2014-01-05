@@ -165,6 +165,4 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 
 		output <- ev.Properties
 	}
-
-	close(output)
 }

@@ -92,7 +92,6 @@ func main() {
 
 	runtime.GOMAXPROCS(maxProcs)
 
-	cfg := configFormat{}
 	if err := gcfg.ReadFileInto(&cfg, configFile); err != nil {
 		log.Fatalf("Failed to load %s: %s", configFile, err)
 	}
@@ -126,6 +125,8 @@ func main() {
 }
 
 func exportProduct(exportDate time.Time, product string, creds mixpanelCredentials, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	client := mixpanel.New(product, creds.Key, creds.Secret)
 	eventData := make(chan mixpanel.EventData)
 
