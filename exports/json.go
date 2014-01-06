@@ -9,8 +9,8 @@ import (
 // JSONStreamer writes records to an io.Writer in JSON format line by line,
 // simply serializing the JSON directly.
 //
-// Format is simply: `{"key": "value", ...}`. `value` should never be a map,
-// but may be a vector. Most values are scalar.
+// Format is simply: `{"key": "value", ...}`. `value` is usually scalar, but
+// can be any valid JSON type.
 func JSONStreamer(w io.Writer, records <-chan mixpanel.EventData) {
 	encoder := json.NewEncoder(w)
 
