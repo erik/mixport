@@ -129,9 +129,6 @@ $ ./mixport
 $ for fifo in /mixport/output/dir/*; do psql -c "COPY TABLE ... FROM $fifo" & done
 ```
 
-(Postgres even supports GZIP'd `COPY ... FROM`s, so you could enable the `gzip`
-option in the configuration and save some bandwidth.)
-
 If you want to pipe things to S3 without hitting disk, I've had success with
 the [s3stream gem](https://github.com/kindkid/s3stream):
 
