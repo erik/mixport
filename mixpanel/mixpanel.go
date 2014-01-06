@@ -93,6 +93,14 @@ func (m *Mixpanel) makeArgs(date time.Time) url.Values {
 	return args
 }
 
+// panicf is a convenience function to reduce a bit of redundancy in formatted
+// panic calls that are used in the ExportDate and TransformEventData
+// functions.
+func (m *Mixpanel) panicf(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	panic(fmt.Sprintf("%s: %s", m.Product, msg))
+}
+
 // ExportDate downloads event data for the given day and streams the resulting
 // transformed JSON blobs as byte strings over the send-only channel passed
 // to the function.
@@ -116,7 +124,7 @@ func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs 
 	defer resp.Body.Close()
 
 	if err != nil {
-		panic(fmt.Sprintf("%s: XXX handle this: download failed: %s", m.Product, err))
+		m.panicf("download failed: %s", err)
 	}
 
 	m.TransformEventData(resp.Body, output)
@@ -146,15 +154,15 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 		if err := decoder.Decode(&ev); err == io.EOF {
 			break
 		} else if err != nil {
-			panic(fmt.Sprintf("%s: Failed to parse JSON: %s", m.Product, err))
+			m.panicf("Failed to parse JSON: %s", err)
 		} else if ev.Error != nil {
-			panic(fmt.Sprintf("%s: Hit API error: %s", m.Product, *ev.Error))
+			m.panicf("API error: %s", *ev.Error)
 		}
 
 		if id, err := uuid.NewV4(); err == nil {
 			ev.Properties[EventIDKey] = id.String()
 		} else {
-			panic(fmt.Sprintf("%s: generating UUID failed: %s", m.Product, err))
+			m.panicf("generating UUID failed: %s", err)
 		}
 
 		ev.Properties["product"] = m.Product
