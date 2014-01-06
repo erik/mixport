@@ -44,12 +44,8 @@ func TestTransformEventData(t *testing.T) {
 					e.Name, v)
 			}
 		}
-
 	}
-
-	if _, ok := <-output; ok {
-		t.Error("expected output chan to be closed here")
-	}
+	close(output)
 }
 
 func TestExportDate(t *testing.T) {
@@ -65,6 +61,8 @@ func BenchmarkTransformEventData(b *testing.B) {
 	b.ResetTimer()
 
 	go mix.TransformEventData(input, output)
-	for _ = range output {
+	for i := 0; i < b.N; i++ {
+		<-output
 	}
+	close(output)
 }
