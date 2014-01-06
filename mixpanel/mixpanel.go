@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/nu7hatch/gouuid"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -117,7 +116,7 @@ func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs 
 	defer resp.Body.Close()
 
 	if err != nil {
-		log.Fatalf("%s: XXX handle this: download failed: %s", m.Product, err)
+		panic(fmt.Sprintf("%s: XXX handle this: download failed: %s", m.Product, err))
 	}
 
 	m.TransformEventData(resp.Body, output)
@@ -147,15 +146,15 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 		if err := decoder.Decode(&ev); err == io.EOF {
 			break
 		} else if err != nil {
-			log.Fatalf("%s: Failed to parse JSON: %s", m.Product, err)
+			panic(fmt.Sprintf("%s: Failed to parse JSON: %s", m.Product, err))
 		} else if ev.Error != nil {
-			log.Fatalf("%s: Hit API error: %s", m.Product, *ev.Error)
+			panic(fmt.Sprintf("%s: Hit API error: %s", m.Product, *ev.Error))
 		}
 
 		if id, err := uuid.NewV4(); err == nil {
 			ev.Properties[EventIDKey] = id.String()
 		} else {
-			log.Fatalf("%s: generating UUID failed: %s", m.Product, err)
+			panic(fmt.Sprintf("%s: generating UUID failed: %s", m.Product, err))
 		}
 
 		ev.Properties["product"] = m.Product

@@ -89,7 +89,11 @@ func init() {
 	cpuProfile = flag.String("prof", "", "dump pprof info to a file.")
 }
 
-var cfg = configFormat{}
+var (
+	cfg = configFormat{}
+	// This variable will be set to true when an export goroutine fails.
+	exportFailed = false
+)
 
 func main() {
 	flag.Parse()
@@ -162,6 +166,10 @@ func main() {
 
 	// Wait for all our goroutines to finish up
 	wg.Wait()
+
+	if exportFailed {
+		log.Fatalf("Export finished with errors.")
+	}
 }
 
 func exportProduct(start, end time.Time, product string, creds mixpanelCredentials, wg *sync.WaitGroup) {
@@ -252,6 +260,15 @@ func exportProduct(start, end time.Time, product string, creds mixpanelCredentia
 
 	go func() {
 		defer close(eventData)
+
+		// If the export goroutine panics for some reason, don't tear
+		// down the whole process with it.
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("%s failed: %v", product, r)
+				exportFailed = true
+			}
+		}()
 
 		// We want it to be start-end inclusive, so add one day to end date.
 		end = end.AddDate(0, 0, 1)
