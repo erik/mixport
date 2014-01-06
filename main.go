@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"syscall"
@@ -60,6 +61,7 @@ var (
 	configFile  string
 	dateString  string
 	rangeString string
+	cpuProfile  *string
 	maxProcs    int
 )
 
@@ -83,6 +85,8 @@ func init() {
 	flag.StringVar(&rangeString, "r", "", rangeUsage)
 	flag.IntVar(&maxProcs, "procs", defaultProcs, procUsage)
 	flag.IntVar(&maxProcs, "p", defaultProcs, procUsage)
+
+	cpuProfile = flag.String("prof", "", "dump pprof info to a file.")
 }
 
 var cfg = configFormat{}
@@ -91,6 +95,15 @@ func main() {
 	flag.Parse()
 
 	runtime.GOMAXPROCS(maxProcs)
+
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
 	if err := gcfg.ReadFileInto(&cfg, configFile); err != nil {
 		log.Fatalf("Failed to load %s: %s", configFile, err)
