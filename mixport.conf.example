@@ -1,25 +1,82 @@
+# This configuration uses the gcfg library, which uses a simple INI style to
+# specify the config.
+#
+# Note that valid boolean values are not just "true" and "false", but also
+# "yes", "no"; "on", "off"; and "1", "0". Use whichever makes the most sense
+# for a given variable.
+#
+# You can find the full documentation for the library at
+# http://godoc.org/code.google.com/p/gcfg.
+#
+# If any section describing an export function is left blank, or the `state`
+# variable is not explicitly set to a `true` value, that export will be
+# considered inactive.
+#
+# Note: `[csv]` and `[json]` have identical configuration options available to
+# them.
+
+
+# This section controls the CSV export function.
+#
+# - `state`:  Whether or not this export is active
+# - `directory`: All CSV output files will be created under this
+#                directory. Directory must exist before mixport is run.
+# - `gzip`: Whether or not to compress the output stream. This gives a very
+#           high compression ratio and is usually worth the additional CPU
+#           cycles.
+# - `fifo`: If true, output will be written to named pipes rather than normal
+#           files. At the end of the run, the named pipes will be removed.
+
 [csv]
-# If not specified, this defaults to off
 state = on
-directory = /path/to/download/dir
-# If true, file will be compressed with gzip.
+directory = /tmp/mixport/
 gzip = on
-# If true, all writes will be to named pipes rather than files
 fifo = false
+
+# This section configures the JSON export function.
+#
+# See the `[csv]` comments for information on the variables, as they have the
+# same meaning here.
 
 [json]
 state = on
-directory = /path/to/download/dir
+directory = /tmp/mixport/
 gzip = on
-fifo = false
+fifo = true
+
+# Specifies the configuration for pushing JSON blobs into an Amazon Kinesis
+# stream.
+#
+# - `state`:  Whether or not this export is active
+# - `keyid`:  Amazon AWS access key id (often called AWS_ACCESS_KEY_ID)
+# - `secret`: Amazon AWS secret access key (often called AWS_SECRET_ACCESS_KEY)
+# - `stream`: Name of the Kinesis stream we'll be writing to. Messages will be
+#             partitioned accross each shard of the stream.
+# - `region`: Optionally specify the AWS region that your Kinesis stream is
+#             in. If not specified, it will be assumed that `region = us-east-1`
 
 [kinesis]
 state = off
 keyid = AWS_ACCESS_KEY_ID
 secretkey = AWS_SECRET_ACCESS_KEY
-stream = kinesis-stream-name
-# optional, defaults to us-east-1
+stream = mixpanel-stream
 region = us-east-1
+
+
+# These product sections are used to define the names and API credentials of
+# the Mixpanel "products" we're interested in exporting data from.
+#
+# The format is simply `[product "NAME"]`. "NAME" doesn't have to align with
+# the actual product name, but is just used to generate the file name and is attached as
+# a `key,value` pair in the output as `{"product": "NAME"}`.
+#
+# - `key`:    Mixpanel API Key for this product.
+# - `secret`: Mixpanel API secret for this product.
+# - `token`:  Mixpanel API token for this product. This isn't currently used,
+#             and will likely be removed later on.
+#
+# All API credentials can be found on your Mixpanel account page under API
+# information.
 
 [product "foo"]
 key = API_KEY
