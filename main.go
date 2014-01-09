@@ -268,9 +268,9 @@ func exportProduct(start, end time.Time, product string, creds mixpanelCredentia
 		}()
 
 		// We want it to be start-end inclusive, so add one day to end date.
-		end = end.AddDate(0, 0, 1)
+		inclusiveEnd := end.AddDate(0, 0, 1)
 
-		for date := start; date.Before(end); date = date.AddDate(0, 0, 1) {
+		for date := start; date.Before(inclusiveEnd); date = date.AddDate(0, 0, 1) {
 			client.ExportDate(date, eventData, nil)
 		}
 	}()
