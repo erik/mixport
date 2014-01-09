@@ -30,11 +30,14 @@ func CSVStreamer(w io.Writer, records <-chan mixpanel.EventData) {
 	for record := range records {
 		id := record[mixpanel.EventIDKey].(string)
 
+		// Divide the given map up into lines of `id,key,value`
 		for key, value := range record {
 			if key == mixpanel.EventIDKey {
 				continue
 			}
 
+			// We don't want to represent nils as "(nil)", Empty
+			// strings make more sense here.
 			var repr string
 			switch value.(type) {
 			case nil:

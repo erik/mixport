@@ -67,8 +67,8 @@ region = us-east-1
 # the Mixpanel "products" we're interested in exporting data from.
 #
 # The format is simply `[product "NAME"]`. "NAME" doesn't have to align with
-# the actual product name, but is just used to generate the file name and is attached as
-# a `key,value` pair in the output as `{"product": "NAME"}`.
+# the actual product name, but is just used to generate the file name and is
+# attached as a `key,value` pair in the output as `{"product": "NAME"}`.
 #
 # - `key`:    Mixpanel API Key for this product.
 # - `secret`: Mixpanel API secret for this product.
