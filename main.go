@@ -61,6 +61,7 @@ var configFile = flag.StringP("config", "c", "./mixport.conf", "path to configur
 var dateString = flag.StringP("date", "d", "", "date of data to pull in YYYY/MM/DD, default is yesterday")
 var rangeString = flag.StringP("range", "r", "", "date range to pull in YYYY/MM/DD-YYYY/MM/DD")
 var cpuProfile = flag.String("prof", "", "dump pprof info to a file.")
+var productList = flag.String("products", "", "comma separated list of products to export.")
 var maxProcs *int
 
 func init() {
@@ -135,12 +136,27 @@ func main() {
 
 	}
 
+	products := make(map[string]*mixpanelCredentials)
+
+	// If not explicitly specified, export all products in the config
+	if *productList == "" {
+		products = cfg.Product
+	} else {
+		for _, name := range strings.Split(*productList, ",") {
+			if creds, ok := cfg.Product[name]; ok {
+				products[name] = creds
+			} else {
+				log.Fatalf("Don't have credentials specified for %s", name)
+			}
+		}
+	}
+
 	// WaitGroup will hold the process open until all of the child
 	// goroutines have completed execution.
 	var wg sync.WaitGroup
 	wg.Add(len(cfg.Product))
 
-	for product, creds := range cfg.Product {
+	for product, creds := range products {
 		// Run each individual product in a new thread.
 		go exportProduct(exportStart, exportEnd, product, *creds, &wg)
 	}
