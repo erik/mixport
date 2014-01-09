@@ -3,10 +3,10 @@ package main
 import (
 	"code.google.com/p/gcfg"
 	"compress/gzip"
-	"flag"
 	"fmt"
 	"github.com/boredomist/mixport/exports"
 	"github.com/boredomist/mixport/mixpanel"
+	flag "github.com/ogier/pflag"
 	kinesis "github.com/sendgridlabs/go-kinesis"
 	"io"
 	"log"
@@ -57,36 +57,17 @@ type configFormat struct {
 	CSV  fileExportConfig
 }
 
-var (
-	configFile  string
-	dateString  string
-	rangeString string
-	cpuProfile  *string
-	maxProcs    int
-)
+var configFile = flag.StringP("config", "c", "./mixport.conf", "path to configuration file")
+var dateString = flag.StringP("date", "d", "", "date of data to pull in YYYY/MM/DD, default is yesterday")
+var rangeString = flag.StringP("range", "r", "", "date range to pull in YYYY/MM/DD-YYYY/MM/DD")
+var cpuProfile = flag.String("prof", "", "dump pprof info to a file.")
+var maxProcs *int
 
 func init() {
-	const (
-		confUsage  = "path to configuration file"
-		dateUsage  = "date (YYYY/MM/DD) of data to pull, default is yesterday"
-		rangeUsage = "date range (YYYY/MM/DD-YYYY/MM/DD) of data to pull."
-		procUsage  = "maximum number of OS threads to spawn. These will be IO bound."
-	)
-
 	// TODO: Tune this.
 	defaultProcs := runtime.NumCPU() * 4
-	defaultConfig := "./mixport.conf"
 
-	flag.StringVar(&configFile, "config", defaultConfig, confUsage)
-	flag.StringVar(&configFile, "c", defaultConfig, confUsage)
-	flag.StringVar(&dateString, "date", "", dateUsage)
-	flag.StringVar(&dateString, "d", "", dateUsage)
-	flag.StringVar(&rangeString, "range", "", rangeUsage)
-	flag.StringVar(&rangeString, "r", "", rangeUsage)
-	flag.IntVar(&maxProcs, "procs", defaultProcs, procUsage)
-	flag.IntVar(&maxProcs, "p", defaultProcs, procUsage)
-
-	cpuProfile = flag.String("prof", "", "dump pprof info to a file.")
+	maxProcs = flag.IntP("procs", "p", defaultProcs, "maximum number of OS threads to spawn.")
 }
 
 var (
@@ -98,7 +79,7 @@ var (
 func main() {
 	flag.Parse()
 
-	runtime.GOMAXPROCS(maxProcs)
+	runtime.GOMAXPROCS(*maxProcs)
 
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
@@ -109,34 +90,34 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	if err := gcfg.ReadFileInto(&cfg, configFile); err != nil {
-		log.Fatalf("Failed to load %s: %s", configFile, err)
+	if err := gcfg.ReadFileInto(&cfg, *configFile); err != nil {
+		log.Fatalf("Failed to load %s: %s", *configFile, err)
 	}
 
 	var exportStart, exportEnd time.Time
 
 	// Default to yesterday (should be newest available data)
-	if dateString == "" {
+	if *dateString == "" {
 		year, month, day := time.Now().UTC().AddDate(0, 0, -1).Date()
 
 		exportStart = time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 		exportEnd = exportStart
 	} else {
-		if d, err := time.Parse("2006/01/02", dateString); err != nil {
+		if d, err := time.Parse("2006/01/02", *dateString); err != nil {
 			log.Fatalf("Invalid date: %s, should be in YYYY/MM/DD format",
-				dateString)
+				*dateString)
 		} else {
 			exportStart = d
 			exportEnd = exportStart
 		}
 	}
 
-	if rangeString != "" {
+	if *rangeString != "" {
 		formatError := func() {
-			log.Fatalf("Invalid range: %s, should be YYYY/MM/DD-YYYY/MM/DD.", rangeString)
+			log.Fatalf("Invalid range: %s, should be YYYY/MM/DD-YYYY/MM/DD.", *rangeString)
 		}
 
-		parts := strings.Split(rangeString, "-")
+		parts := strings.Split(*rangeString, "-")
 
 		if len(parts) != 2 {
 			formatError()
