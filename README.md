@@ -41,6 +41,13 @@ $ ./mixport
 That's it! If your configuration isn't in `.` or is named something other than
 `mixport.conf`, you need to specify it with `-c path/to/config`.
 
+If you want to just export a specific subset of the products defined in the
+configuration, the `--products` flags will be useful:
+
+```bash
+$ ./mixport --products=Product1,Product2,...,ProductN
+```
+
 If you want to download data for a single day (that isn't yesterday), use the
 `-d` flag:
 
@@ -55,6 +62,8 @@ $ ./mixport -r 2013/12/31-2014/02/06
 ```
 
 And that's about all you need to know to get started.
+
+For a full listing of command arguments available, use `./mixport --help`.
 
 ## Export formats
 

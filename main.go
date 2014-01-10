@@ -60,8 +60,7 @@ type configFormat struct {
 // Holds parsed configuration file
 var cfg = configFormat{}
 
-// Will be set to true when an export goroutine fails (to set exit status
-// correctly).
+// Will be set to true when an export goroutine fails (to set exit status).
 var exportFailed = false
 
 func main() {
@@ -172,9 +171,8 @@ func exportProduct(start, end time.Time, product string, creds mixpanelCredentia
 	client := mixpanel.New(product, creds.Key, creds.Secret)
 	eventData := make(chan mixpanel.EventData)
 
-	// We need to mux eventData into multiple channels to
-	// ensure all export funcs have a chance to see each event
-	// instance.
+	// We need to mux eventData into multiple channels to ensure all export
+	// funcs have a chance to see each event instance.
 	var chans []chan mixpanel.EventData
 
 	if cfg.Kinesis.State {
