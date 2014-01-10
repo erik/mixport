@@ -93,14 +93,6 @@ func (m *Mixpanel) makeArgs(date time.Time) url.Values {
 	return args
 }
 
-// errorf is a convenience function to reduce a bit of redundancy in formatted
-// error calls that are used in the ExportDate and TransformEventData
-// functions.
-func (m *Mixpanel) errorf(format string, args ...interface{}) error {
-	msg := fmt.Sprintf(format, args...)
-	return fmt.Errorf(fmt.Sprintf("%s: %s", m.Product, msg))
-}
-
 // ExportDate downloads event data for the given day and streams the resulting
 // transformed JSON blobs as byte strings over the send-only channel passed
 // to the function.
@@ -123,7 +115,7 @@ func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs 
 	resp, err := http.Get(fmt.Sprintf("%s?%s", m.BaseURL, args.Encode()))
 
 	if err != nil {
-		return m.errorf("download failed: %s", err)
+		return fmt.Errorf("%s: download failed: %s", m.Product, err)
 	}
 
 	defer resp.Body.Close()
@@ -155,15 +147,15 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 		if err := decoder.Decode(&ev); err == io.EOF {
 			break
 		} else if err != nil {
-			return m.errorf("Failed to parse JSON: %s", err)
+			return fmt.Errorf("%s: Failed to parse JSON: %s", m.Product, err)
 		} else if ev.Error != nil {
-			return m.errorf("API error: %s", *ev.Error)
+			return fmt.Errorf("%s: API error: %s", m.Product, *ev.Error)
 		}
 
 		if id, err := uuid.NewV4(); err == nil {
 			ev.Properties[EventIDKey] = id.String()
 		} else {
-			return m.errorf("generating UUID failed: %s", err)
+			return fmt.Errorf("%s: generating UUID failed: %s", m.Product, err)
 		}
 
 		ev.Properties["product"] = m.Product
