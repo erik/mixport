@@ -93,12 +93,12 @@ func (m *Mixpanel) makeArgs(date time.Time) url.Values {
 	return args
 }
 
-// panicf is a convenience function to reduce a bit of redundancy in formatted
-// panic calls that are used in the ExportDate and TransformEventData
+// errorf is a convenience function to reduce a bit of redundancy in formatted
+// error calls that are used in the ExportDate and TransformEventData
 // functions.
-func (m *Mixpanel) panicf(format string, args ...interface{}) {
+func (m *Mixpanel) errorf(format string, args ...interface{}) error {
 	msg := fmt.Sprintf(format, args...)
-	panic(fmt.Sprintf("%s: %s", m.Product, msg))
+	return fmt.Errorf(fmt.Sprintf("%s: %s", m.Product, msg))
 }
 
 // ExportDate downloads event data for the given day and streams the resulting
@@ -107,7 +107,7 @@ func (m *Mixpanel) panicf(format string, args ...interface{}) {
 //
 // The optional `moreArgs` parameter can be given to add additional URL
 // parameters to the API request.
-func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs *url.Values) {
+func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs *url.Values) error {
 	args := m.makeArgs(date)
 
 	if moreArgs != nil {
@@ -121,13 +121,14 @@ func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs 
 	m.addSignature(&args)
 
 	resp, err := http.Get(fmt.Sprintf("%s?%s", m.BaseURL, args.Encode()))
-	defer resp.Body.Close()
 
 	if err != nil {
-		m.panicf("download failed: %s", err)
+		return m.errorf("download failed: %s", err)
 	}
 
-	m.TransformEventData(resp.Body, output)
+	defer resp.Body.Close()
+
+	return m.TransformEventData(resp.Body, output)
 }
 
 // TransformEventData reads JSON objects line by line from `input`, performs a
@@ -138,7 +139,7 @@ func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs 
 //
 // Input : `{"event": "...", "properties": {"k": "v"}}`
 // Output: `{"event": "...", "product: "...", "k": "v", ...}`
-func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) {
+func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) error {
 	decoder := json.NewDecoder(input)
 
 	// Don't default all numeric values to float
@@ -154,15 +155,15 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 		if err := decoder.Decode(&ev); err == io.EOF {
 			break
 		} else if err != nil {
-			m.panicf("Failed to parse JSON: %s", err)
+			return m.errorf("Failed to parse JSON: %s", err)
 		} else if ev.Error != nil {
-			m.panicf("API error: %s", *ev.Error)
+			return m.errorf("API error: %s", *ev.Error)
 		}
 
 		if id, err := uuid.NewV4(); err == nil {
 			ev.Properties[EventIDKey] = id.String()
 		} else {
-			m.panicf("generating UUID failed: %s", err)
+			return m.errorf("generating UUID failed: %s", err)
 		}
 
 		ev.Properties["product"] = m.Product
@@ -170,4 +171,6 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 
 		output <- ev.Properties
 	}
+
+	return nil
 }

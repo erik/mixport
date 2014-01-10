@@ -248,25 +248,20 @@ func exportProduct(start, end time.Time, product string, creds mixpanelCredentia
 		go setupFileExportStream(cfg.CSV, "csv", exports.CSVStreamer)
 	}
 
-	go func() {
+	go func(end time.Time) {
 		defer close(eventData)
 
-		// If the export goroutine panics for some reason, don't tear
-		// down the whole process with it.
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("%s failed: %v", product, r)
-				exportFailed = true
-			}
-		}()
-
 		// We want it to be start-end inclusive, so add one day to end date.
-		inclusiveEnd := end.AddDate(0, 0, 1)
+		end = end.AddDate(0, 0, 1)
 
-		for date := start; date.Before(inclusiveEnd); date = date.AddDate(0, 0, 1) {
-			client.ExportDate(date, eventData, nil)
+		for date := start; date.Before(end); date = date.AddDate(0, 0, 1) {
+			if err := client.ExportDate(date, eventData, nil); err != nil {
+				log.Printf("export failed: %v", err)
+				exportFailed = true
+				break
+			}
 		}
-	}()
+	}(end)
 
 	// Multiplex each received event to each of the active export
 	// functions.
