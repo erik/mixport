@@ -62,20 +62,13 @@ var dateString = flag.StringP("date", "d", "", "date of data to pull in YYYY/MM/
 var rangeString = flag.StringP("range", "r", "", "date range to pull in YYYY/MM/DD-YYYY/MM/DD")
 var cpuProfile = flag.String("prof", "", "dump pprof info to a file.")
 var productList = flag.String("products", "", "comma separated list of products to export.")
-var maxProcs *int
+var maxProcs = flag.IntP("procs", "p", runtime.NumCPU(), "maximum number of OS threads to spawn.")
 
-func init() {
-	// TODO: Tune this.
-	defaultProcs := runtime.NumCPU() * 4
+// Holds parsed configuration file
+var cfg = configFormat{}
 
-	maxProcs = flag.IntP("procs", "p", defaultProcs, "maximum number of OS threads to spawn.")
-}
-
-var (
-	cfg = configFormat{}
-	// This variable will be set to true when an export goroutine fails.
-	exportFailed = false
-)
+// Will be set to true when an export goroutine fails. (to set status correctly)
+var exportFailed = false
 
 func main() {
 	flag.Parse()
