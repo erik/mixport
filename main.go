@@ -57,20 +57,24 @@ type configFormat struct {
 	CSV  fileExportConfig
 }
 
-var configFile = flag.StringP("config", "c", "./mixport.conf", "path to configuration file")
-var dateString = flag.StringP("date", "d", "", "date of data to pull in YYYY/MM/DD, default is yesterday")
-var rangeString = flag.StringP("range", "r", "", "date range to pull in YYYY/MM/DD-YYYY/MM/DD")
-var cpuProfile = flag.String("prof", "", "dump pprof info to a file.")
-var productList = flag.String("products", "", "comma separated list of products to export.")
-var maxProcs = flag.IntP("procs", "p", runtime.NumCPU(), "maximum number of OS threads to spawn.")
-
 // Holds parsed configuration file
 var cfg = configFormat{}
 
-// Will be set to true when an export goroutine fails. (to set status correctly)
+// Will be set to true when an export goroutine fails (to set exit status
+// correctly).
 var exportFailed = false
 
 func main() {
+
+	var (
+		configFile  = flag.StringP("config", "c", "./mixport.conf", "path to configuration file")
+		dateString  = flag.StringP("date", "d", "", "date of data to pull in YYYY/MM/DD, default is yesterday")
+		rangeString = flag.StringP("range", "r", "", "date range to pull in YYYY/MM/DD-YYYY/MM/DD")
+		cpuProfile  = flag.String("prof", "", "dump pprof info to a file.")
+		productList = flag.String("products", "", "comma separated list of products to export.")
+		maxProcs    = flag.IntP("procs", "p", runtime.NumCPU(), "maximum number of OS threads to spawn.")
+	)
+
 	flag.Parse()
 
 	runtime.GOMAXPROCS(*maxProcs)
@@ -263,8 +267,7 @@ func exportProduct(start, end time.Time, product string, creds mixpanelCredentia
 		}
 	}(end)
 
-	// Multiplex each received event to each of the active export
-	// functions.
+	// Multiplex each received event to each of the active export funcs.
 	for data := range eventData {
 		for _, ch := range chans {
 			ch <- data
