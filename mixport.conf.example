@@ -44,6 +44,32 @@ directory = /tmp/mixport/
 gzip = on
 fifo = true
 
+
+# This section configures the CSV with defined columns export function.
+#
+# See the `[csv]` comments for information on the variables, as they have the
+# same meaning here.
+#
+# In addition to the variables shared with `[csv]` and `[json]`:
+#
+# - `columns`: Path to JSON file containing column definitions for mixpanel
+#              products in the form:
+#
+#                  {
+#                    "product1": {
+#                      "event1": ["col1", "col2", "col3", ... ],
+#                      ...
+#                    },
+#                    ...
+#                  }
+[columns]
+state = on
+directory = /tmp/mixport/
+gzip = on
+fifo = true
+columns = /some/file.json
+
+
 # Specifies the configuration for pushing JSON blobs into an Amazon Kinesis
 # stream.
 #
