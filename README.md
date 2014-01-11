@@ -1,4 +1,4 @@
-# mixport
+# mixport [![Build Status](https://travis-ci.org/boredomist/mixport.png?branch=master)](https://travis-ci.org/boredomist/mixport)
 
 
 `mixport` utilizes Mixpanel's
