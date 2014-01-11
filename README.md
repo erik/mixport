@@ -19,6 +19,8 @@ very logical).
 `mixport` is really only concerned with the export portion of the problem, but
 can do some streaming transforms on the data to make it more digestible.
 
+*Requires Go >= 1.1 to compile.*
+
 ## Usage
 
 First, let's set up a configuration file:
