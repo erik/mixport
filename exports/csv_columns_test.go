@@ -19,12 +19,12 @@ func TestCSVColumnStreamer(t *testing.T) {
 
 	output := make([]*bytes.Buffer, 4)
 
-	defs := make(map[string]EventDef)
+	defs := make(map[string]EventColumnDef)
 
 	for i := 0; i < 4; i++ {
 		output[i] = bytes.NewBuffer(nil)
 
-		defs[strconv.Itoa(i)] = NewEventDef(output[i], columns[i])
+		defs[strconv.Itoa(i)] = NewEventColumnDef(output[i], columns[i])
 	}
 
 	events := make([]mixpanel.EventData, 5)
@@ -70,9 +70,9 @@ func BenchmarkCSVColumnStreamer(b *testing.B) {
 		[]string{"aa3", "a3", "b3", "d3"},
 	}
 
-	defs := make(map[string]EventDef)
+	defs := make(map[string]EventColumnDef)
 	for i := 0; i < 4; i++ {
-		defs[strconv.Itoa(i)] = NewEventDef(ioutil.Discard, columns[i])
+		defs[strconv.Itoa(i)] = NewEventColumnDef(ioutil.Discard, columns[i])
 	}
 
 	// This allocates a ton of memory.

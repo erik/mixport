@@ -323,14 +323,14 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 		// Not much sense in consuming the stream if we have no events
 		// to actually capture.
 		if prodCols, ok := columns[export.Product]; ok {
-			defs := make(map[string]exports.EventDef)
+			defs := make(map[string]exports.EventColumnDef)
 			fileConf := cfg.Columns.fileExportConfig
 
 			for event, cols := range prodCols {
 				w, cleanupFunc := createExportFile(export, fileConf, event, "csv")
 				defer cleanupFunc()
 
-				defs[event] = exports.NewEventDef(w, cols)
+				defs[event] = exports.NewEventColumnDef(w, cols)
 			}
 
 			ch := make(chan mixpanel.EventData)

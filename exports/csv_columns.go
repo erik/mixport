@@ -7,21 +7,19 @@ import (
 	"io"
 )
 
-// EventDef represents the definition of an event's CSV columns to be passed on
-// to the `CSVColumnStreamer` function.
-//
-// XXX: This is a pretty non-descript name, it should be changed.
-type EventDef struct {
+// EventColumnDef represents the definition of an event's CSV columns to be
+// passed on to the `CSVColumnStreamer` function.
+type EventColumnDef struct {
 	writer  *csv.Writer
 	columns []string
 }
 
-// NewEventDef oddly enough creates an instance of the EventDef struct from the
-// given io.Writer and list of column names.
+// NewEventColumnDef oddly enough creates an instance of the EventColumnDef
+// struct from the given io.Writer and list of column names.
 //
 // Columns in the output will be in the same order as they passed in here.
-func NewEventDef(w io.Writer, columns []string) EventDef {
-	return EventDef{
+func NewEventColumnDef(w io.Writer, columns []string) EventColumnDef {
+	return EventColumnDef{
 		writer:  csv.NewWriter(w),
 		columns: columns,
 	}
@@ -35,8 +33,9 @@ func NewEventDef(w io.Writer, columns []string) EventDef {
 // This will write to a unique io.Writer for each specified event.
 //
 // The `defs` map contains a mapping of the event names to capture to their
-// EventDefs. Any event received that is not in this map will simply be dropped.
-func CSVColumnStreamer(defs map[string]EventDef, records <-chan mixpanel.EventData) {
+// EventColumnDefs. Any event received that is not in this map will simply be
+// dropped.
+func CSVColumnStreamer(defs map[string]EventColumnDef, records <-chan mixpanel.EventData) {
 
 	for _, def := range defs {
 		// Write the column names as CSV header
