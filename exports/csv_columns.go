@@ -9,9 +9,14 @@ import (
 
 // EventColumnDef represents the definition of an event's CSV columns to be
 // passed on to the `CSVColumnStreamer` function.
+//
+// - `columns` contains the names of the columns.
+// - `values` represents a row, in the same order as specified by
+//   `columns`. This is to avoid creating excessive garbage by allocating and
+//   destroying the array on each iteration.
 type EventColumnDef struct {
-	writer  *csv.Writer
-	columns []string
+	writer          *csv.Writer
+	columns, values []string
 }
 
 // NewEventColumnDef oddly enough creates an instance of the EventColumnDef
@@ -22,6 +27,7 @@ func NewEventColumnDef(w io.Writer, columns []string) EventColumnDef {
 	return EventColumnDef{
 		writer:  csv.NewWriter(w),
 		columns: columns,
+		values:  make([]string, len(columns)),
 	}
 }
 
@@ -48,20 +54,18 @@ func CSVColumnStreamer(defs map[string]EventColumnDef, records <-chan mixpanel.E
 		// We simply ignore events we don't have column definitions
 		// for.
 		if def, ok := defs[event]; ok {
-			cols := make([]string, len(def.columns))
-
 			// If the property is nil or doesn't exist in the event
 			// data, assign it an empty string value.
 			for i, col := range def.columns {
 				switch value := record[col]; value.(type) {
 				case nil:
-					cols[i] = ""
+					def.values[i] = ""
 				default:
-					cols[i] = fmt.Sprintf("%v", value)
+					def.values[i] = fmt.Sprintf("%v", value)
 				}
 			}
 
-			def.writer.Write(cols)
+			def.writer.Write(def.values)
 		}
 	}
 
