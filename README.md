@@ -67,7 +67,7 @@ For a full listing of command arguments available, use `./mixport --help`.
 
 ## Export formats
 
-There are currently 3 exportable formats:
+There are currently 4 exportable formats:
 
 ### Schemaless CSV
 
@@ -94,6 +94,68 @@ best way.
 
 Note that this exploded format does get pretty big on disk, and hugely benefits
 from GZIP compression.
+
+### CSV with columns
+
+Like schemaless CSV, this format is intended to be COPY friendly for SQL
+databases. Unlike the previous format, however, this export requires that
+the columns must be explicitly specified for each event.
+
+Instead of writing to a single file for each product, this export function will
+create an output file for each event of each product.
+
+The configuration for this is in the form of a single JSON file, specified by
+the `columns` variable under the `columns` configuration section.
+
+The format for this file should be a single map in the following format:
+
+```javascript
+{
+  "product1": {
+    "event1": ["col1", "col2", "col3", ... ],
+    ...
+  },
+  ...
+}
+```
+
+As an example, let's say we have this configuration:
+
+```javascript
+{
+  "productA": {
+    "foo": ["a", "b", "c"]
+    "bar": ["a", "b"]
+  }
+}
+```
+
+Now we see the following series of events instances for `productA`:
+
+```javascript
+{"event": "foo", "properties": {"a": 1, "c": 3}}
+{"event": "bar", "properties": {"a": 1, "b": 2, "c": 3}}
+{"event": "baz", "properties": {"a": 1, "b": 2, "c": 3}}
+```
+
+For `foo`, the `"b"` property is missing from the event data, so the column is
+assigned a null value:
+
+```csv
+a,b,c
+1,,3
+```
+
+For `bar`, the `"c"` property is not explicitly listed as a column in the
+configuration, so it is not included in the output:
+
+```csv
+a,b
+1,2
+```
+
+And because we don't have a definition for the `baz` event type, the event is
+dropped completely.
 
 ### Flattened JSON
 

@@ -3,6 +3,7 @@ package main
 import (
 	"code.google.com/p/gcfg"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"github.com/boredomist/mixport/exports"
 	"github.com/boredomist/mixport/mixpanel"
@@ -35,6 +36,15 @@ type fileExportConfig struct {
 	Directory string
 }
 
+// TODO: document me
+//
+// - `Columns` is the path to a JSON file containing the columns specified by
+//   stuff and stuff. TODO words.
+type columnExportConfig struct {
+	fileExportConfig
+	Columns string
+}
+
 // configFormat is the in-memory representation of the mixport configuration
 // file.
 //
@@ -43,6 +53,7 @@ type fileExportConfig struct {
 // - `Kinesis` is access keys and configuration for Amazon Kinesis exporter.
 // - `JSON` and `CSV` are the configuration setups for the `JSON` and `CSV`
 //   exporters, respectively.
+// - `Columns` TODO: words
 type configFormat struct {
 	Product map[string]*mixpanelCredentials
 	Kinesis struct {
@@ -53,8 +64,18 @@ type configFormat struct {
 		Region    string
 	}
 
-	JSON fileExportConfig
-	CSV  fileExportConfig
+	JSON    fileExportConfig
+	CSV     fileExportConfig
+	Columns columnExportConfig
+}
+
+// exportConfig simply bundles together the variables describing the export of
+// a single Mixpanel product to reduce a bit of noise in helper function type
+// signatures.
+type exportConfig struct {
+	Product    string
+	Creds      mixpanelCredentials
+	Start, End time.Time
 }
 
 // Holds parsed configuration file
@@ -152,9 +173,9 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(len(cfg.Product))
 
+	// Run each individual product export in a new goroutine.
 	for product, creds := range products {
-		// Run each individual product in a new thread.
-		go exportProduct(exportStart, exportEnd, product, *creds, &wg)
+		go exportProduct(exportConfig{product, *creds, exportStart, exportEnd}, &wg)
 	}
 
 	// Wait for all our goroutines to finish up
@@ -165,10 +186,69 @@ func main() {
 	}
 }
 
-func exportProduct(start, end time.Time, product string, creds mixpanelCredentials, wg *sync.WaitGroup) {
+// createExportFile abstracts the handling of configuration variables common to
+// `csv`, `json`, and `columns` into a single function.
+//
+// The returned tuple contains:
+//   - A generic io.Writer which will be passed off to the export function.
+//   - A function taking no arguments which should be called after the export
+//     function finishes (using defer) to do any necessary cleanup, depending
+//     on the specified configuration options.
+func createExportFile(export exportConfig, conf fileExportConfig, suffix, ext string) (io.Writer, func()) {
+	if conf.Gzip {
+		ext += ".gz"
+	}
+
+	start, end := export.Start, export.End
+
+	timeFmt := "20060102"
+	stamp := start.Format(timeFmt)
+
+	// Append end date to timestamp if we're using a date range.
+	if start != end {
+		stamp += fmt.Sprintf("-%s", end.Format(timeFmt))
+	}
+
+	name := path.Join(conf.Directory, fmt.Sprintf("%s%s-%s.%s", export.Product, suffix, stamp, ext))
+
+	if conf.Fifo {
+		if err := syscall.Mkfifo(name, syscall.S_IRWXU); err != nil {
+			log.Fatalf("Couldn't create named pipe: %s", err)
+		}
+	}
+
+	fp, err := os.Create(name)
+	if err != nil {
+		log.Fatalf("Couldn't create file: %s", err)
+	}
+
+	writer := (io.Writer)(fp)
+	if conf.Gzip {
+		writer = gzip.NewWriter(fp)
+	}
+
+	cleanup := func() {
+		if conf.Gzip {
+			(writer).(*gzip.Writer).Close()
+		}
+
+		fp.Close()
+
+		if conf.Fifo {
+			os.Remove(name)
+		}
+	}
+
+	return writer, cleanup
+}
+
+// exportProduct is called once for each individual mixpanel product to be
+// exported. It starts each export function in its own goroutine and will block
+// until all events have been processed.
+func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	client := mixpanel.New(product, creds.Key, creds.Secret)
+	client := mixpanel.New(export.Product, export.Creds.Key, export.Creds.Secret)
 	eventData := make(chan mixpanel.EventData)
 
 	// We need to mux eventData into multiple channels to ensure all export
@@ -186,84 +266,96 @@ func exportProduct(start, end time.Time, product string, creds mixpanelCredentia
 
 		wg.Add(1)
 		go func() {
-			exports.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
 			defer wg.Done()
+			exports.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
 		}()
 	}
 
-	type streamFunc func(io.Writer, <-chan mixpanel.EventData)
-
-	// Generalize setup of JSON and CSV streams into a single function.
-	setupFileExportStream := func(conf fileExportConfig, ext string, streamer streamFunc) {
-		wg.Add(1)
-		defer wg.Done()
-
+	if cfg.JSON.State {
 		ch := make(chan mixpanel.EventData)
 		chans = append(chans, ch)
 
-		if conf.Gzip {
-			ext += ".gz"
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		timeFmt := "20060102"
-		stamp := start.Format(timeFmt)
+			writer, cleanup := createExportFile(export, cfg.JSON, "", "json")
+			defer cleanup()
 
-		// Append end date to timestamp if we're using a date range.
-		if start != end {
-			stamp += fmt.Sprintf("-%s", end.Format(timeFmt))
-		}
-
-		name := path.Join(conf.Directory, fmt.Sprintf("%s-%s.%s", product, stamp, ext))
-
-		if conf.Fifo {
-			if err := syscall.Mkfifo(name, syscall.S_IRWXU); err != nil {
-				log.Fatalf("Couldn't create named pipe: %s", err)
-			}
-		}
-
-		fp, err := os.Create(name)
-		if err != nil {
-			log.Fatalf("Couldn't create file: %s", err)
-		}
-
-		if conf.Fifo {
-			defer os.Remove(name)
-		}
-		defer fp.Close()
-
-		writer := (io.Writer)(fp)
-		if conf.Gzip {
-			writer = gzip.NewWriter(fp)
-			defer (writer).(*gzip.Writer).Close()
-		} else {
-			writer = fp
-		}
-
-		streamer(writer, ch)
-	}
-
-	if cfg.JSON.State {
-		go setupFileExportStream(cfg.JSON, "json", exports.JSONStreamer)
+			exports.JSONStreamer(writer, ch)
+		}()
 	}
 
 	if cfg.CSV.State {
-		go setupFileExportStream(cfg.CSV, "csv", exports.CSVStreamer)
+		ch := make(chan mixpanel.EventData)
+		chans = append(chans, ch)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			writer, cleanup := createExportFile(export, cfg.CSV, "", "csv")
+			defer cleanup()
+
+			exports.CSVStreamer(writer, ch)
+		}()
 	}
 
-	go func(end time.Time) {
+	if cfg.Columns.State {
+		fp, err := os.Open(cfg.Columns.Columns)
+
+		if err != nil {
+			log.Fatalf("Couldn't open column defintions: %v", err)
+		}
+
+		// We expect a single map in the file of the form:
+		//   {"product": {"event": ["columns", ...], ...}, ...}
+		columns := make(map[string]map[string][]string)
+
+		if err := json.NewDecoder(fp).Decode(&columns); err != nil {
+			log.Fatalf("Failed to read column definitions: %v", err)
+		}
+
+		fp.Close()
+
+		// Not much sense in consuming the stream if we have no events
+		// to actually capture.
+		if prodCols, ok := columns[export.Product]; ok {
+			defs := make(map[string]exports.EventDef)
+			fileConf := cfg.Columns.fileExportConfig
+
+			for event, cols := range prodCols {
+				w, cleanupFunc := createExportFile(export, fileConf, event, "csv")
+				defer cleanupFunc()
+
+				defs[event] = exports.NewEventDef(w, cols)
+			}
+
+			ch := make(chan mixpanel.EventData)
+			chans = append(chans, ch)
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				exports.CSVColumnStreamer(defs, ch)
+			}()
+		}
+	}
+
+	go func() {
 		defer close(eventData)
 
 		// We want it to be start-end inclusive, so add one day to end date.
-		end = end.AddDate(0, 0, 1)
+		end := export.End.AddDate(0, 0, 1)
 
-		for date := start; date.Before(end); date = date.AddDate(0, 0, 1) {
+		for date := export.Start; date.Before(end); date = date.AddDate(0, 0, 1) {
 			if err := client.ExportDate(date, eventData, nil); err != nil {
 				log.Printf("export failed: %v", err)
 				exportFailed = true
 				break
 			}
 		}
-	}(end)
+	}()
 
 	// Multiplex each received event to each of the active export funcs.
 	for data := range eventData {
