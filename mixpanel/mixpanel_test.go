@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAddSignature(t *testing.T) {
@@ -11,7 +12,22 @@ func TestAddSignature(t *testing.T) {
 }
 
 func TestMakeArgs(t *testing.T) {
-	// TODO: write me
+	mix := New("product", "key", "secret")
+	date, _ := time.Parse("2006-01-02", "1999-12-31")
+	args := mix.makeArgs(date)
+
+	expected := [][]string{
+		{"format", "json"},
+		{"api_key", "key"},
+		{"from_date", "1999-12-31"},
+		{"to_date", "1999-12-31"},
+	}
+
+	for _, pair := range expected {
+		if args[pair[0]][0] != pair[1] {
+			t.Errorf("Expected %v, got %s", pair, args[pair[0]][0])
+		}
+	}
 }
 
 func TestTransformEventData(t *testing.T) {
