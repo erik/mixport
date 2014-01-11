@@ -173,8 +173,8 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(len(cfg.Product))
 
+	// Run each individual product export in a new goroutine.
 	for product, creds := range products {
-		// Run each individual product in a new thread.
 		go exportProduct(exportConfig{product, *creds, exportStart, exportEnd}, &wg)
 	}
 
@@ -194,7 +194,7 @@ func main() {
 //   - A function taking no arguments which should be called after the export
 //     function finishes (using defer) to do any necessary cleanup, depending
 //     on the specified configuration options.
-func createExportFile(export exportConfig, conf fileExportConfig, ext string) (io.Writer, func()) {
+func createExportFile(export exportConfig, conf fileExportConfig, suffix, ext string) (io.Writer, func()) {
 	if conf.Gzip {
 		ext += ".gz"
 	}
@@ -209,7 +209,7 @@ func createExportFile(export exportConfig, conf fileExportConfig, ext string) (i
 		stamp += fmt.Sprintf("-%s", end.Format(timeFmt))
 	}
 
-	name := path.Join(conf.Directory, fmt.Sprintf("%s-%s.%s", export.Product, stamp, ext))
+	name := path.Join(conf.Directory, fmt.Sprintf("%s%s-%s.%s", export.Product, suffix, stamp, ext))
 
 	if conf.Fifo {
 		if err := syscall.Mkfifo(name, syscall.S_IRWXU); err != nil {
@@ -279,7 +279,7 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 		go func() {
 			defer wg.Done()
 
-			writer, cleanup := createExportFile(export, cfg.JSON, "json")
+			writer, cleanup := createExportFile(export, cfg.JSON, "", "json")
 			defer cleanup()
 
 			exports.JSONStreamer(writer, ch)
@@ -294,7 +294,7 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 		go func() {
 			defer wg.Done()
 
-			writer, cleanup := createExportFile(export, cfg.CSV, "csv")
+			writer, cleanup := createExportFile(export, cfg.CSV, "", "csv")
 			defer cleanup()
 
 			exports.CSVStreamer(writer, ch)
@@ -302,37 +302,44 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 	}
 
 	if cfg.Columns.State {
-		ch := make(chan mixpanel.EventData)
-		chans = append(chans, ch)
-
 		fp, err := os.Open(cfg.Columns.Columns)
 
 		if err != nil {
 			log.Fatalf("Couldn't open column defintions: %v", err)
 		}
 
-		columns := make(map[string][]string)
+		// We expect a single map in the file of the form:
+		//   {"product": {"event": ["columns", ...], ...}, ...}
+		columns := make(map[string]map[string][]string)
+
 		if err := json.NewDecoder(fp).Decode(&columns); err != nil {
 			log.Fatalf("Failed to read column definitions: %v", err)
 		}
 
 		fp.Close()
 
-		defs := make(map[string]exports.EventDef)
+		// Not much sense in consuming the stream if we have no events
+		// to actually capture.
+		if prodCols, ok := columns[export.Product]; ok {
+			defs := make(map[string]exports.EventDef)
+			fileConf := cfg.Columns.fileExportConfig
 
-		for event, cols := range columns {
-			w, cleanup := createExportFile(export, cfg.Columns.fileExportConfig, "csv")
-			defer cleanup()
+			for event, cols := range prodCols {
+				w, cleanupFunc := createExportFile(export, fileConf, event, "csv")
+				defer cleanupFunc()
 
-			defs[event] = exports.NewEventDef(w, cols)
+				defs[event] = exports.NewEventDef(w, cols)
+			}
+
+			ch := make(chan mixpanel.EventData)
+			chans = append(chans, ch)
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				exports.CSVColumnStreamer(defs, ch)
+			}()
 		}
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			exports.CSVColumnStreamer(defs, ch)
-		}()
 	}
 
 	go func() {
