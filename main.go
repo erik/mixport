@@ -28,7 +28,8 @@ type mixpanelCredentials struct {
 	Token  string
 }
 
-// Configuration options common to the file export streams (CSV and JSON)
+// fileExportConfig contains configuration options common to the file export
+// streams (CSV and JSON).
 type fileExportConfig struct {
 	State     bool
 	Gzip      bool
@@ -36,10 +37,11 @@ type fileExportConfig struct {
 	Directory string
 }
 
-// TODO: document me
+// columnExportConfig contains configuration options for the CSV with columns
+// export type. It is a superset of the more general `fileExportConfig`.
 //
-// - `Columns` is the path to a JSON file containing the columns specified by
-//   stuff and stuff. TODO words.
+// - `Columns` is the path to a JSON file containing the mapping of events to
+//   the columns to include in the CSV output.
 type columnExportConfig struct {
 	fileExportConfig
 	Columns string
@@ -48,12 +50,12 @@ type columnExportConfig struct {
 // configFormat is the in-memory representation of the mixport configuration
 // file.
 //
-// - `Product` is Mixpanel API credential information for each product that will be
-//   exported.
+// - `Product` is Mixpanel API credential information for each product that
+//   will be exported.
 // - `Kinesis` is access keys and configuration for Amazon Kinesis exporter.
 // - `JSON` and `CSV` are the configuration setups for the `JSON` and `CSV`
 //   exporters, respectively.
-// - `Columns` TODO: words
+// - `Columns` is the configuration for the `CSV column` export type.
 type configFormat struct {
 	Product map[string]*mixpanelCredentials
 	Kinesis struct {
