@@ -7,25 +7,22 @@ import (
 	"io"
 )
 
-// TODO: Rename this file to something better. "csv_with_columns" is overly
-//       verbose and not terribly descriptive.
-
-// EventDef ... TODO: write me
+// EventDef represents the TODO
 type EventDef struct {
 	writer  *csv.Writer
 	columns []string
 }
 
 // NewEventDef ... TODO: write me
-func NewEventDef(w io.Writer, columns []string) *EventDef {
-	return &EventDef{
+func NewEventDef(w io.Writer, columns []string) EventDef {
+	return EventDef{
 		writer:  csv.NewWriter(w),
 		columns: columns,
 	}
 }
 
 // CSVColumnStreamer ... TODO: write me
-func CSVColumnStreamer(defs map[string]*EventDef, records <-chan mixpanel.EventData) {
+func CSVColumnStreamer(defs map[string]EventDef, records <-chan mixpanel.EventData) {
 
 	for _, def := range defs {
 		// Write the column names as CSV header
@@ -52,7 +49,7 @@ func CSVColumnStreamer(defs map[string]*EventDef, records <-chan mixpanel.EventD
 		}
 	}
 
-	// Flush any buffered data to the underlying io.Writer
+	// Flush any remaining buffered data to the underlying io.Writer
 	for _, def := range defs {
 		def.writer.Flush()
 	}

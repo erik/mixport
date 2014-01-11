@@ -69,8 +69,10 @@ type configFormat struct {
 	Columns columnExportConfig
 }
 
-// TODO: document me
-type productConfig struct {
+// exportConfig simply bundles together the variables describing the export of
+// a single Mixpanel product to reduce a bit of noise in helper function type
+// signatures.
+type exportConfig struct {
 	Product    string
 	Creds      mixpanelCredentials
 	Start, End time.Time
@@ -173,7 +175,7 @@ func main() {
 
 	for product, creds := range products {
 		// Run each individual product in a new thread.
-		go exportProduct(productConfig{product, *creds, exportStart, exportEnd}, &wg)
+		go exportProduct(exportConfig{product, *creds, exportStart, exportEnd}, &wg)
 	}
 
 	// Wait for all our goroutines to finish up
@@ -184,16 +186,20 @@ func main() {
 	}
 }
 
-// TODO: document me
-type cleanupFunc func()
-
-// TODO: document me
-func createExportFile(prodConf productConfig, conf fileExportConfig, ext string) (io.Writer, cleanupFunc) {
+// createExportFile abstracts the handling of configuration variables common to
+// `csv`, `json`, and `columns` into a single function.
+//
+// The returned tuple contains:
+//   - A generic io.Writer which will be passed off to the export function.
+//   - A function taking no arguments which should be called after the export
+//     function finishes (using defer) to do any necessary cleanup, depending
+//     on the specified configuration options.
+func createExportFile(export exportConfig, conf fileExportConfig, ext string) (io.Writer, func()) {
 	if conf.Gzip {
 		ext += ".gz"
 	}
 
-	start, end := prodConf.Start, prodConf.End
+	start, end := export.Start, export.End
 
 	timeFmt := "20060102"
 	stamp := start.Format(timeFmt)
@@ -203,7 +209,7 @@ func createExportFile(prodConf productConfig, conf fileExportConfig, ext string)
 		stamp += fmt.Sprintf("-%s", end.Format(timeFmt))
 	}
 
-	name := path.Join(conf.Directory, fmt.Sprintf("%s-%s.%s", prodConf.Product, stamp, ext))
+	name := path.Join(conf.Directory, fmt.Sprintf("%s-%s.%s", export.Product, stamp, ext))
 
 	if conf.Fifo {
 		if err := syscall.Mkfifo(name, syscall.S_IRWXU); err != nil {
@@ -236,12 +242,13 @@ func createExportFile(prodConf productConfig, conf fileExportConfig, ext string)
 	return writer, cleanup
 }
 
-// TODO: document me
-// TODO: rename conf, clashes with global cfg, not descriptive enough
-func exportProduct(conf productConfig, wg *sync.WaitGroup) {
+// exportProduct is called once for each individual mixpanel product to be
+// exported. It starts each export function in its own goroutine and will block
+// until all events have been processed.
+func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	client := mixpanel.New(conf.Product, conf.Creds.Key, conf.Creds.Secret)
+	client := mixpanel.New(export.Product, export.Creds.Key, export.Creds.Secret)
 	eventData := make(chan mixpanel.EventData)
 
 	// We need to mux eventData into multiple channels to ensure all export
@@ -272,7 +279,7 @@ func exportProduct(conf productConfig, wg *sync.WaitGroup) {
 		go func() {
 			defer wg.Done()
 
-			writer, cleanup := createExportFile(conf, cfg.JSON, "json")
+			writer, cleanup := createExportFile(export, cfg.JSON, "json")
 			defer cleanup()
 
 			exports.JSONStreamer(writer, ch)
@@ -287,7 +294,7 @@ func exportProduct(conf productConfig, wg *sync.WaitGroup) {
 		go func() {
 			defer wg.Done()
 
-			writer, cleanup := createExportFile(conf, cfg.CSV, "csv")
+			writer, cleanup := createExportFile(export, cfg.CSV, "csv")
 			defer cleanup()
 
 			exports.CSVStreamer(writer, ch)
@@ -311,10 +318,10 @@ func exportProduct(conf productConfig, wg *sync.WaitGroup) {
 
 		fp.Close()
 
-		defs := make(map[string]*exports.EventDef)
+		defs := make(map[string]exports.EventDef)
 
 		for event, cols := range columns {
-			w, cleanup := createExportFile(conf, cfg.Columns.fileExportConfig, "csv")
+			w, cleanup := createExportFile(export, cfg.Columns.fileExportConfig, "csv")
 			defer cleanup()
 
 			defs[event] = exports.NewEventDef(w, cols)
@@ -332,9 +339,9 @@ func exportProduct(conf productConfig, wg *sync.WaitGroup) {
 		defer close(eventData)
 
 		// We want it to be start-end inclusive, so add one day to end date.
-		end := conf.End.AddDate(0, 0, 1)
+		end := export.End.AddDate(0, 0, 1)
 
-		for date := conf.Start; date.Before(end); date = date.AddDate(0, 0, 1) {
+		for date := export.Start; date.Before(end); date = date.AddDate(0, 0, 1) {
 			if err := client.ExportDate(date, eventData, nil); err != nil {
 				log.Printf("export failed: %v", err)
 				exportFailed = true

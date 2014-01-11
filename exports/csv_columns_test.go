@@ -19,7 +19,7 @@ func TestCSVColumnStreamer(t *testing.T) {
 
 	output := make([]*bytes.Buffer, 4)
 
-	defs := make(map[string]*EventDef)
+	defs := make(map[string]EventDef)
 
 	for i := 0; i < 4; i++ {
 		output[i] = bytes.NewBuffer(nil)
@@ -70,7 +70,7 @@ func BenchmarkCSVColumnStreamer(b *testing.B) {
 		[]string{"aa3", "a3", "b3", "d3"},
 	}
 
-	defs := make(map[string]*EventDef)
+	defs := make(map[string]EventDef)
 	for i := 0; i < 4; i++ {
 		defs[strconv.Itoa(i)] = NewEventDef(ioutil.Discard, columns[i])
 	}
