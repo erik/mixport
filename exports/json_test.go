@@ -12,25 +12,23 @@ import (
 func TestJSONtreamer(t *testing.T) {
 	var expected, output bytes.Buffer
 
-	records := make(chan mixpanel.EventData)
+	records := make(chan mixpanel.EventData, 3)
 
-	go func() {
-		for i := 0; i < 3; i++ {
-			event := make(mixpanel.EventData)
-			event[mixpanel.EventIDKey] = fmt.Sprintf("%d", i)
-			event["foo"] = "bar,baz"
+	for i := 0; i < 3; i++ {
+		event := make(mixpanel.EventData)
+		event[mixpanel.EventIDKey] = fmt.Sprintf("%d", i)
+		event["foo"] = "bar,baz"
 
-			records <- event
+		records <- event
 
-			var buf bytes.Buffer
-			enc := json.NewEncoder(&buf)
-			enc.Encode(event)
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.Encode(event)
 
-			expected.Write(buf.Bytes())
-		}
+		expected.Write(buf.Bytes())
+	}
 
-		close(records)
-	}()
+	close(records)
 
 	JSONStreamer(&output, records)
 
@@ -40,19 +38,18 @@ func TestJSONtreamer(t *testing.T) {
 }
 
 func BenchmarkJSONStreamer(b *testing.B) {
-	records := make(chan mixpanel.EventData)
+	records := make(chan mixpanel.EventData, b.N)
 
-	go func() {
-		event := make(mixpanel.EventData)
-		event[mixpanel.EventIDKey] = "id"
-		event["foo"] = "bar,baz"
+	event := make(mixpanel.EventData)
+	event[mixpanel.EventIDKey] = "id"
+	event["foo"] = "bar,baz"
 
-		for i := 0; i < b.N; i++ {
-			records <- event
-		}
+	for i := 0; i < b.N; i++ {
+		records <- event
+	}
 
-		close(records)
-	}()
+	close(records)
 
+	b.ResetTimer()
 	JSONStreamer(ioutil.Discard, records)
 }

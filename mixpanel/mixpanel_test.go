@@ -74,15 +74,11 @@ func TestTransformEventDataApiError(t *testing.T) {
 
 	output := make(chan EventData)
 
-	go func() {
-		if err := mix.TransformEventData(input, output); err == nil {
-			t.Error("Expected error on bad json")
-		} else if err.Error() != "product: API error: some api error" {
-			t.Errorf("Bad error string: '%s'", err.Error())
-		}
-	}()
-
-	close(output)
+	if err := mix.TransformEventData(input, output); err == nil {
+		t.Error("Expected error on bad json")
+	} else if err.Error() != "product: API error: some api error" {
+		t.Errorf("Bad error string: '%s'", err.Error())
+	}
 }
 
 func TestTransformEventDataBadJson(t *testing.T) {
@@ -90,13 +86,11 @@ func TestTransformEventDataBadJson(t *testing.T) {
 	input := strings.NewReader(`{"event": "a", "properties": {"a": "1"}}
 {"event": "bad_json"`)
 
-	output := make(chan EventData)
+	output := make(chan EventData, 1)
 
-	go func() {
-		if err := mix.TransformEventData(input, output); err == nil {
-			t.Error("Expected error on bad json")
-		}
-	}()
+	if err := mix.TransformEventData(input, output); err == nil {
+		t.Error("Expected error on bad json")
+	}
 
 	event := <-output
 	expected := []struct {
@@ -113,8 +107,6 @@ func TestTransformEventDataBadJson(t *testing.T) {
 				e.Name, v)
 		}
 	}
-
-	close(output)
 }
 
 func TestExportDate(t *testing.T) {

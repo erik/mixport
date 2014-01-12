@@ -54,6 +54,8 @@ func NewWithURL(product, key, secret, baseURL string) *Mixpanel {
 
 // Add the cryptographic signature that Mixpanel API requests require.
 //
+// FIXME: Pretty sure sorting the pairs isn't necessary. Double check.
+//
 // Algorithm:
 // - join key=value pairs
 // - sort the pairs alphabetically

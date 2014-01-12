@@ -45,13 +45,11 @@ func TestCSVColumnStreamer(t *testing.T) {
 		"aa3,a3,b3,d3\n\"\",a,b,d\n",
 	}
 
-	records := make(chan mixpanel.EventData)
-	go func() {
-		for _, ev := range events {
-			records <- ev
-		}
-		close(records)
-	}()
+	records := make(chan mixpanel.EventData, 5)
+	for _, ev := range events {
+		records <- ev
+	}
+	close(records)
 
 	CSVColumnStreamer(defs, records)
 
@@ -87,16 +85,12 @@ func BenchmarkCSVColumnStreamer(b *testing.B) {
 		events[i][fmt.Sprintf("d%d", b.N%5)] = "d"
 	}
 
-	records := make(chan mixpanel.EventData)
+	records := make(chan mixpanel.EventData, b.N)
+	for _, ev := range events {
+		records <- ev
+	}
+	close(records)
 
 	b.ResetTimer()
-
-	go func() {
-		for _, ev := range events {
-			records <- ev
-		}
-		close(records)
-	}()
-
 	CSVColumnStreamer(defs, records)
 }
