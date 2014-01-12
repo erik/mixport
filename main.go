@@ -257,9 +257,17 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 	// funcs have a chance to see each event instance.
 	var chans []chan mixpanel.EventData
 
+	makeChan := func() chan mixpanel.EventData {
+		// Using buffered channels so that a slower receiver won't
+		// block a quicker one.
+		c := make(chan mixpanel.EventData, 100)
+		chans = append(chans, c)
+
+		return c
+	}
+
 	if cfg.Kinesis.State {
-		ch := make(chan mixpanel.EventData)
-		chans = append(chans, ch)
+		c := makeChan()
 
 		ksis := kinesis.New(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey)
 		if cfg.Kinesis.Region != "" {
@@ -269,13 +277,12 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			exports.KinesisStreamer(ksis, cfg.Kinesis.Stream, ch)
+			exports.KinesisStreamer(ksis, cfg.Kinesis.Stream, c)
 		}()
 	}
 
 	if cfg.JSON.State {
-		ch := make(chan mixpanel.EventData)
-		chans = append(chans, ch)
+		c := makeChan()
 
 		wg.Add(1)
 		go func() {
@@ -284,13 +291,12 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 			writer, cleanup := createExportFile(export, cfg.JSON, "", "json")
 			defer cleanup()
 
-			exports.JSONStreamer(writer, ch)
+			exports.JSONStreamer(writer, c)
 		}()
 	}
 
 	if cfg.CSV.State {
-		ch := make(chan mixpanel.EventData)
-		chans = append(chans, ch)
+		c := makeChan()
 
 		wg.Add(1)
 		go func() {
@@ -299,7 +305,7 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 			writer, cleanup := createExportFile(export, cfg.CSV, "", "csv")
 			defer cleanup()
 
-			exports.CSVStreamer(writer, ch)
+			exports.CSVStreamer(writer, c)
 		}()
 	}
 
@@ -333,13 +339,12 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 				defs[event] = exports.NewEventColumnDef(w, cols)
 			}
 
-			ch := make(chan mixpanel.EventData)
-			chans = append(chans, ch)
+			c := makeChan()
 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				exports.CSVColumnStreamer(defs, ch)
+				exports.CSVColumnStreamer(defs, c)
 			}()
 		}
 	}
