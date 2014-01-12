@@ -173,7 +173,7 @@ func main() {
 	// WaitGroup will hold the process open until all of the child
 	// goroutines have completed execution.
 	var wg sync.WaitGroup
-	wg.Add(len(cfg.Product))
+	wg.Add(len(products))
 
 	// Run each individual product export in a new goroutine.
 	for product, creds := range products {
