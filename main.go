@@ -173,10 +173,10 @@ func main() {
 	// WaitGroup will hold the process open until all of the child
 	// goroutines have completed execution.
 	var wg sync.WaitGroup
-	wg.Add(len(products))
 
 	// Run each individual product export in a new goroutine.
 	for product, creds := range products {
+		wg.Add(1)
 		go exportProduct(exportConfig{product, *creds, exportStart, exportEnd}, &wg)
 	}
 
@@ -329,21 +329,23 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 		// Not much sense in consuming the stream if we have no events
 		// to actually capture.
 		if prodCols, ok := columns[export.Product]; ok {
-			defs := make(map[string]exports.EventColumnDef)
-			fileConf := cfg.Columns.fileExportConfig
-
-			for event, cols := range prodCols {
-				w, cleanupFunc := createExportFile(export, fileConf, event, "csv")
-				defer cleanupFunc()
-
-				defs[event] = exports.NewEventColumnDef(w, cols)
-			}
-
 			c := makeChan()
 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+
+				defs := make(map[string]exports.EventColumnDef)
+
+				for event, cols := range prodCols {
+					writer, cleanup := createExportFile(
+						export, cfg.Columns.fileExportConfig, event, "csv")
+
+					defs[event] = exports.NewEventColumnDef(writer, cols)
+
+					defer cleanup()
+				}
+
 				exports.CSVColumnStreamer(defs, c)
 			}()
 		}
