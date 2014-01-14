@@ -40,8 +40,10 @@ func TestTransformEventData(t *testing.T) {
 	output := make(chan EventData)
 
 	go func() {
-		if err := mix.TransformEventData(input, output); err != nil {
+		if num, err := mix.TransformEventData(input, output); err != nil {
 			t.Errorf("raised error: %v", err)
+		} else if num != 3 {
+			t.Errorf("expected to see 3 records, saw %d", num)
 		}
 	}()
 
@@ -74,10 +76,12 @@ func TestTransformEventDataApiError(t *testing.T) {
 
 	output := make(chan EventData)
 
-	if err := mix.TransformEventData(input, output); err == nil {
+	if num, err := mix.TransformEventData(input, output); err == nil {
 		t.Error("Expected error on bad json")
 	} else if err.Error() != "product: API error: some api error" {
 		t.Errorf("Bad error string: '%s'", err.Error())
+	} else if num != 0 {
+		t.Errorf("Expected 0 records, got %d", num)
 	}
 }
 
@@ -88,8 +92,10 @@ func TestTransformEventDataBadJson(t *testing.T) {
 
 	output := make(chan EventData, 1)
 
-	if err := mix.TransformEventData(input, output); err == nil {
+	if num, err := mix.TransformEventData(input, output); err == nil {
 		t.Error("Expected error on bad json")
+	} else if num != 1 {
+		t.Errorf("Expected 1 record, got %d", num)
 	}
 
 	event := <-output

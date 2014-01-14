@@ -96,9 +96,12 @@ func (m *Mixpanel) makeArgs(date time.Time) url.Values {
 // transformed JSON blobs as byte strings over the send-only channel passed
 // to the function.
 //
+// Returns the number of records that have been processed during the run and
+// possibly an error.
+//
 // The optional `moreArgs` parameter can be given to add additional URL
 // parameters to the API request.
-func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs *url.Values) error {
+func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs *url.Values) (int, error) {
 	args := m.makeArgs(date)
 
 	if moreArgs != nil {
@@ -114,7 +117,7 @@ func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs 
 	resp, err := http.Get(fmt.Sprintf("%s?%s", m.BaseURL, args.Encode()))
 
 	if err != nil {
-		return fmt.Errorf("%s: download failed: %s", m.Product, err)
+		return 0, fmt.Errorf("%s: download failed: %s", m.Product, err)
 	}
 
 	defer resp.Body.Close()
@@ -128,13 +131,19 @@ func (m *Mixpanel) ExportDate(date time.Time, output chan<- EventData, moreArgs 
 // The transformation effectively folds the properties map into the top level
 // and attaches product information.
 //
+// Returns the number of records that have been processed during the run and
+// possibly an error.
+//
 // Input : `{"event": "...", "properties": {"k": "v"}}`
 // Output: `{"event": "...", "product: "...", "k": "v", ...}`
-func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) error {
+func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) (int, error) {
 	decoder := json.NewDecoder(input)
 
 	// Don't default all numeric values to float
 	decoder.UseNumber()
+
+	// Keep track of the number of records we've processed so far.
+	numLines := 0
 
 	for {
 		var ev struct {
@@ -146,22 +155,24 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 		if err := decoder.Decode(&ev); err == io.EOF {
 			break
 		} else if err != nil {
-			return fmt.Errorf("%s: Failed to parse JSON: %s", m.Product, err)
+			return numLines, fmt.Errorf("%s: Failed to parse JSON: %s", m.Product, err)
 		} else if ev.Error != nil {
-			return fmt.Errorf("%s: API error: %s", m.Product, *ev.Error)
+			return numLines, fmt.Errorf("%s: API error: %s", m.Product, *ev.Error)
 		}
 
 		if id, err := uuid.NewV4(); err == nil {
 			ev.Properties[EventIDKey] = id.String()
 		} else {
-			return fmt.Errorf("%s: generating UUID failed: %s", m.Product, err)
+			return numLines, fmt.Errorf("%s: generating UUID failed: %s", m.Product, err)
 		}
 
 		ev.Properties["product"] = m.Product
 		ev.Properties["event"] = ev.Event
 
 		output <- ev.Properties
+
+		numLines++
 	}
 
-	return nil
+	return numLines, nil
 }

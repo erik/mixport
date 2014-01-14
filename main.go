@@ -354,16 +354,28 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 	go func() {
 		defer close(eventData)
 
-		// We want it to be start-end inclusive, so add one day to end date.
+		// Keep track of the total number of lines have been processed.
+		total := 0
+
+		// We want it to be start-end inclusive, so add one day to end
+		// date.
 		end := export.End.AddDate(0, 0, 1)
 
 		for date := export.Start; date.Before(end); date = date.AddDate(0, 0, 1) {
-			if err := client.ExportDate(date, eventData, nil); err != nil {
-				log.Printf("export failed: %v", err)
+			num, err := client.ExportDate(date, eventData, nil)
+
+			if err != nil {
+				log.Printf("%s: export failed: %v", export.Product, err)
 				exportFailed = true
-				break
+				return
+			} else if num == 0 {
+				log.Printf("%s: no records for %v", export.Product, date)
 			}
+
+			total += num
 		}
+
+		log.Printf("%s: handled %d records", export.Product, total)
 	}()
 
 	// Multiplex each received event to each of the active export funcs.
