@@ -196,7 +196,7 @@ func main() {
 //   - A function taking no arguments which should be called after the export
 //     function finishes (using defer) to do any necessary cleanup, depending
 //     on the specified configuration options.
-func createExportFile(export exportConfig, conf fileExportConfig, suffix, ext string) (io.Writer, func()) {
+func createExportFile(export exportConfig, conf fileExportConfig, event, ext string) (io.Writer, func()) {
 	if conf.Gzip {
 		ext += ".gz"
 	}
@@ -211,7 +211,13 @@ func createExportFile(export exportConfig, conf fileExportConfig, suffix, ext st
 		stamp += fmt.Sprintf("-%s", end.Format(timeFmt))
 	}
 
-	name := path.Join(conf.Directory, fmt.Sprintf("%s%s-%s.%s", export.Product, suffix, stamp, ext))
+	name := path.Join(conf.Directory, export.Product)
+
+	if event != "" {
+		name += fmt.Sprintf("-%s", event)
+	}
+
+	name += fmt.Sprintf("-%s.%s", stamp, ext)
 
 	if conf.Fifo {
 		if err := syscall.Mkfifo(name, syscall.S_IRWXU); err != nil {
@@ -354,7 +360,8 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 	go func() {
 		defer close(eventData)
 
-		// Keep track of the total number of lines have been processed.
+		// Keep track of the total number of lines that have been
+		// processed.
 		total := 0
 
 		// We want it to be start-end inclusive, so add one day to end
@@ -364,18 +371,20 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 		for date := export.Start; date.Before(end); date = date.AddDate(0, 0, 1) {
 			num, err := client.ExportDate(date, eventData, nil)
 
+			dateStr := date.Format("2006-01-02")
+
 			if err != nil {
-				log.Printf("%s: export failed: %v", export.Product, err)
+				log.Printf("%s: %s: export failed: %v", dateStr, export.Product, err)
 				exportFailed = true
 				return
 			} else if num == 0 {
-				log.Printf("%s: no records for %v", export.Product, date)
+				log.Printf("%s: %s: no records.", dateStr, export.Product)
 			}
 
 			total += num
 		}
 
-		log.Printf("%s: handled %d records", export.Product, total)
+		log.Printf("%s: %d records.", export.Product, total)
 	}()
 
 	// Multiplex each received event to each of the active export funcs.
