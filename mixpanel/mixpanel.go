@@ -142,10 +142,10 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 	// Don't default all numeric values to float
 	decoder.UseNumber()
 
-	// Keep track of the number of records we've processed so far.
+	// Keep track of the number of records we've processed.
 	numLines := 0
 
-	for {
+	for ; ; numLines++ {
 		var ev struct {
 			Error      *string
 			Event      string
@@ -170,8 +170,6 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 		ev.Properties["event"] = ev.Event
 
 		output <- ev.Properties
-
-		numLines++
 	}
 
 	return numLines, nil
