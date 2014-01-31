@@ -2,7 +2,7 @@ package exports
 
 import (
 	"encoding/json"
-	"github.com/boredomist/mixport/mixpanel"
+	"github.com/erik/mixport/mixpanel"
 	"io"
 )
 

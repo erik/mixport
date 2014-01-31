@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/boredomist/mixport/mixpanel"
+	"github.com/erik/mixport/mixpanel"
 	kinesis "github.com/sendgridlabs/go-kinesis"
 )
 

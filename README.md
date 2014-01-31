@@ -1,4 +1,4 @@
-# mixport [![Build Status](https://travis-ci.org/boredomist/mixport.png?branch=master)](https://travis-ci.org/boredomist/mixport)
+# mixport [![Build Status](https://travis-ci.org/erik/mixport.png?branch=master)](https://travis-ci.org/erik/mixport)
 
 **Warning:** This project is still under heavy development and shouldn't be
   used for anything critical quite yet.
@@ -28,7 +28,7 @@ can do some streaming transforms on the data to make it more digestible.
 Using `go get`:
 
 ```bash
-$ go get github.com/boredomist/mixport
+$ go get github.com/erik/mixport
 ```
 
 ## Usage
@@ -194,7 +194,7 @@ data is left as an exercise left to the reader.
 **Warning:** haven't gotten around to testing this one yet.
 
 It's really simple to write a new one (seriously, just look at the
-[JSON one](https://github.com/boredomist/mixport/blob/master/exports/json.go)),
+[JSON one](https://github.com/erik/mixport/blob/master/exports/json.go)),
 so if you have an idea for an export, please contribute.
 
 ## Mixpanel to X without hitting disk

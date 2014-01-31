@@ -3,7 +3,7 @@ package exports
 import (
 	"bytes"
 	"fmt"
-	"github.com/boredomist/mixport/mixpanel"
+	"github.com/erik/mixport/mixpanel"
 	"io/ioutil"
 	"strconv"
 	"testing"
