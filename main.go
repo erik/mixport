@@ -84,8 +84,9 @@ type exportConfig struct {
 // Holds parsed configuration file
 var cfg = configFormat{}
 
-// Will be set to true when an export goroutine fails (to set exit status).
-var exportFailed = false
+// Map containing the names of the product exports that failed. For deletion
+// and error reporting purposes.
+var failedExports = make(map[string]bool)
 
 func main() {
 
@@ -192,8 +193,12 @@ func main() {
 	// Wait for all our goroutines to finish up
 	wg.Wait()
 
-	if exportFailed {
-		log.Fatalf("Export finished with errors.")
+	if len(failedExports) > 0 {
+		log.Printf("Finished with errors:")
+		for product := range failedExports {
+			log.Printf("\t%s", product)
+		}
+		os.Exit(1)
 	}
 }
 
@@ -253,6 +258,14 @@ func createExportFile(export exportConfig, conf fileExportConfig, event, ext str
 
 		if conf.Fifo {
 			os.Remove(name)
+		}
+
+		// Make sure bad files get deleted if the export for this
+		// product failed.
+		if conf.RemoveFailed {
+			if _, err := failedExports[export.Product]; err {
+				os.Remove(name)
+			}
 		}
 	}
 
@@ -384,7 +397,7 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 
 			if err != nil {
 				log.Printf("%s: %s: export failed: %v", dateStr, export.Product, err)
-				exportFailed = true
+				failedExports[export.Product] = true
 				return
 			} else if num == 0 {
 				log.Printf("%s: %s: no records.", dateStr, export.Product)
