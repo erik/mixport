@@ -31,10 +31,11 @@ type mixpanelCredentials struct {
 // fileExportConfig contains configuration options common to the file export
 // streams (CSV and JSON).
 type fileExportConfig struct {
-	State     bool
-	Gzip      bool
-	Fifo      bool
-	Directory string
+	State        bool
+	Gzip         bool
+	Fifo         bool
+	RemoveFailed bool
+	Directory    string
 }
 
 // columnExportConfig contains configuration options for the CSV with columns
@@ -153,6 +154,14 @@ func main() {
 			formatError()
 		}
 
+	}
+
+	// Do some sanity checking on each of the file configs.
+	fileConfigs := []fileExportConfig{cfg.CSV, cfg.JSON, cfg.Columns.fileExportConfig}
+	for _, config := range fileConfigs {
+		if config.State && config.Fifo && config.RemoveFailed {
+			log.Fatalf("Can't have both `fifo=true` and `removefailed=true`")
+		}
 	}
 
 	products := make(map[string]*mixpanelCredentials)

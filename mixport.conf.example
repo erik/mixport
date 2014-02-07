@@ -12,8 +12,8 @@
 # variable is not explicitly set to a `true` value, that export will be
 # considered inactive.
 #
-# Note: `[csv]` and `[json]` have identical configuration options available to
-# them.
+# Note: `[csv]`, `[columns]`, and `[json]` have identical configuration options
+# available to them.
 
 
 # This section controls the CSV export function.
@@ -26,12 +26,17 @@
 #           cycles.
 # - `fifo`: If true, output will be written to named pipes rather than normal
 #           files. At the end of the run, the named pipes will be removed.
+# - `removefailed`: If true, automatically delete files that failed to download
+#                   correctly. Note: This flag cannot be used in conjunction
+#                   with fifo=true.
 
 [csv]
 state = on
 directory = /tmp/mixport/
 gzip = on
 fifo = false
+removefailed = true
+
 
 # This section configures the JSON export function.
 #
@@ -43,6 +48,7 @@ state = on
 directory = /tmp/mixport/
 gzip = on
 fifo = true
+removefailed = true
 
 
 # This section configures the CSV with defined columns export function.
@@ -68,6 +74,7 @@ directory = /tmp/mixport/
 gzip = on
 fifo = true
 columns = /some/file.json
+removefailed = true
 
 
 # Specifies the configuration for pushing JSON blobs into an Amazon Kinesis
