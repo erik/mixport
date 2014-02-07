@@ -38,11 +38,9 @@ func CSVStreamer(w io.Writer, records <-chan mixpanel.EventData) {
 
 			// We don't want to represent nils as "(nil)", empty
 			// strings make more sense here.
-			var repr string
-			switch value.(type) {
-			case nil:
-				repr = ""
-			default:
+			repr := ""
+
+			if value != nil {
 				repr = fmt.Sprintf("%v", value)
 			}
 

@@ -285,6 +285,7 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 	// funcs have a chance to see each event instance.
 	var chans []chan mixpanel.EventData
 
+	// Simplify the boilerplate of creating multiplexed channels.
 	makeChan := func() chan mixpanel.EventData {
 		// Using buffered channels so that a slower receiver won't
 		// block a quicker one.
