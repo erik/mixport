@@ -57,10 +57,9 @@ func CSVColumnStreamer(defs map[string]EventColumnDef, records <-chan mixpanel.E
 			// If the property is nil or doesn't exist in the event
 			// data, assign it an empty string value.
 			for i, col := range def.columns {
-				switch value := record[col]; value.(type) {
-				case nil:
+				if value := record[col]; value == nil {
 					def.values[i] = ""
-				default:
+				} else {
 					def.values[i] = fmt.Sprintf("%v", value)
 				}
 			}
