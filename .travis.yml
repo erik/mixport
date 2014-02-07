@@ -4,5 +4,3 @@ go:
   - 1.2
   - tip
 script: go test -v ./... -bench . -benchmem
-notifications:
-  email: false
