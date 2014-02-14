@@ -249,6 +249,8 @@ func createExportFile(export exportConfig, conf fileExportConfig, event, ext str
 		writer = gzip.NewWriter(fp)
 	}
 
+	// Create a function used to clean up any on-disk resources created for
+	// the given exportConfig.
 	cleanup := func() {
 		if conf.Gzip {
 			(writer).(*gzip.Writer).Close()
@@ -299,7 +301,7 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 		c := makeChan()
 
 		ksis := kinesis.New(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey)
-		if cfg.Kinesis.Region != "" {
+		if cfg.Kinesis.Region == "" {
 			ksis.Region = "us-east-1"
 		}
 
@@ -396,6 +398,11 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 
 			dateStr := date.Format("2006-01-02")
 
+			// Bail out early if one of the exports for this product
+			// fails.
+			//
+			// TODO: Should we keep going and not report error
+			//       until the end? Maybe make that configurable.
 			if err != nil {
 				log.Printf("%s: %s: export failed: %v", dateStr, export.Product, err)
 				failedExports[export.Product] = true
