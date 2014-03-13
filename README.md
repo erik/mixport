@@ -1,8 +1,5 @@
 # mixport [![Build Status](https://travis-ci.org/erik/mixport.png?branch=master)](https://travis-ci.org/erik/mixport)
 
-**Warning:** This project is still under heavy development and shouldn't be
-  used for anything critical quite yet.
-
 `mixport` utilizes Mixpanel's
 [data export API](https://mixpanel.com/docs/api-documentation/exporting-raw-data-you-inserted-into-mixpanel)
 to download event data and make it far easier to consume and store.
