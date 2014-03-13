@@ -89,14 +89,30 @@ var cfg = configFormat{}
 var failedExports = make(map[string]bool)
 
 func main() {
+	flag.Usage = func() {
+		fmt.Println(`Usage: mixport [OPTIONS]
+
+Download and transform Mixpanel event data.
+
+Options:
+  -h, --help      Display this message.
+  -c, --config    Path to configuration file, defaulting to "./mixport.conf"
+  -d, --date      Date of data to pull in YYYY/MM/DD, defaulting to yesterday.
+  -p, --procs     Maximum number of OS threads for the go runtime to use,
+                  defaulting to number of CPUs available on the machine.
+  --products      Comma separated list of products to export.
+  --prof          Dump pprof info to the named file.
+  -r, --range     Specify a date range to pull data for in YYYY/MM/DD-YYYY/MM/DD
+                  format.`)
+	}
 
 	var (
-		configFile  = flag.StringP("config", "c", "./mixport.conf", "path to configuration file")
-		dateString  = flag.StringP("date", "d", "", "date of data to pull in YYYY/MM/DD, default is yesterday")
-		rangeString = flag.StringP("range", "r", "", "date range to pull in YYYY/MM/DD-YYYY/MM/DD")
-		cpuProfile  = flag.String("prof", "", "dump pprof info to a file.")
-		productList = flag.String("products", "", "comma separated list of products to export.")
-		maxProcs    = flag.IntP("procs", "p", runtime.NumCPU(), "maximum number of OS threads to spawn.")
+		configFile  = flag.StringP("config", "c", "./mixport.conf", "")
+		dateString  = flag.StringP("date", "d", "", "")
+		rangeString = flag.StringP("range", "r", "", "")
+		cpuProfile  = flag.String("prof", "", "")
+		productList = flag.String("products", "", "")
+		maxProcs    = flag.IntP("procs", "p", runtime.NumCPU(), "")
 	)
 
 	flag.Parse()
