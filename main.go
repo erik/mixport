@@ -1,14 +1,9 @@
 package main
 
 import (
-	"code.google.com/p/gcfg"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"github.com/erik/mixport/exports"
-	"github.com/erik/mixport/mixpanel"
-	flag "github.com/ogier/pflag"
-	kinesis "github.com/sendgridlabs/go-kinesis"
 	"io"
 	"log"
 	"os"
@@ -19,6 +14,12 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"code.google.com/p/gcfg"
+	"github.com/erik/mixport/exports"
+	"github.com/erik/mixport/mixpanel"
+	flag "github.com/ogier/pflag"
+	kinesis "github.com/sendgridlabs/go-kinesis"
 )
 
 // Mixpanel API credentials, used by the configuration parser.
@@ -315,11 +316,13 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 
 	if cfg.Kinesis.State {
 		c := makeChan()
-
-		ksis := kinesis.New(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey)
-		if cfg.Kinesis.Region == "" {
-			ksis.Region = "us-east-1"
+		region := cfg.Kinesis.Region
+		if region == "" {
+			// default region
+			region = "us-east-1"
 		}
+
+		ksis := kinesis.New(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey, kinesis.Region{region})
 
 		wg.Add(1)
 		go func() {
