@@ -20,6 +20,9 @@ const MixpanelBaseURL = "https://data.mixpanel.com/api/2.0/export"
 // chosen to make collisions with actual keys very unlikely.
 const EventIDKey = "$__$$event_id"
 
+// Key into the EventData map that contains the SQL Timestamp/DateTime compatible timestamp of this event.
+const TimestampKey = "$__$$timestamp"
+
 // Mixpanel struct represents a set of credentials used to access the Mixpanel
 // API for a particular product.
 type Mixpanel struct {
@@ -164,6 +167,13 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 			ev.Properties[EventIDKey] = id.String()
 		} else {
 			return numLines, fmt.Errorf("%s: generating UUID failed: %s", m.Product, err)
+		}
+
+		if uts, ok := ev.Properties["time"].(json.Number); ok {
+			tstamp := time.Unix(uts.Int64(), 0)
+			ev.Properties[TimestampKey] = tstamp.Format("2006-01-02 15:04:05")
+		} else {
+			return numLines, fmt.Errorf("%s: converting Timestamp failed: %s", m.Product, ok)
 		}
 
 		ev.Properties["product"] = m.Product
