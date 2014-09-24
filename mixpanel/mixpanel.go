@@ -169,11 +169,13 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 			return numLines, fmt.Errorf("%s: generating UUID failed: %s", m.Product, err)
 		}
 
-		if uts, ok := ev.Properties["time"].(json.Number); ok {
-			tstamp := time.Unix(uts.Int64(), 0)
-			ev.Properties[TimestampKey] = tstamp.Format("2006-01-02 15:04:05")
-		} else {
-			return numLines, fmt.Errorf("%s: converting Timestamp failed: %s", m.Product, ok)
+		if prop, ok := ev.Properties["time"].(json.Number); ok {
+			if uts, err := prop.Int64(); err == nil {
+				tstamp := time.Unix(uts, 0)
+				ev.Properties[TimestampKey] = tstamp.Format("2006-01-02 15:04:05")
+			} else {
+				return numLines, fmt.Errorf("%s: converting Timestamp failed: %s", m.Product, err)
+			}
 		}
 
 		ev.Properties["product"] = m.Product
