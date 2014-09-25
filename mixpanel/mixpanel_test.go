@@ -115,6 +115,23 @@ func TestTransformEventDataBadJson(t *testing.T) {
 	}
 }
 
+func TestExtractUnixTimestamp(t *testing.T) {
+	mix := New("product", "", "")
+	input := strings.NewReader(`{"event": "a", "properties": {"time": 1095379200}}`)
+	output := make(chan EventData, 1)
+
+	if num, err := mix.TransformEventData(input, output); err != nil {
+		t.Error("Got error on valid json: ", err)
+	} else if num != 1 {
+		t.Errorf("Expected 1 record, got %d", num)
+	}
+
+	event := <-output
+	if v, ok := event[TimestampKey]; !ok || v != "2004-09-17 00:00:00" {
+		t.Errorf("Got bad time value: %d, %s", event["time"], event[TimestampKey])
+	}
+}
+
 func TestExportDate(t *testing.T) {
 	// TODO: write me
 }
