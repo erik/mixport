@@ -171,7 +171,7 @@ func (m *Mixpanel) TransformEventData(input io.Reader, output chan<- EventData) 
 
 		if prop, ok := ev.Properties["time"].(json.Number); ok {
 			if uts, err := prop.Int64(); err == nil {
-				tstamp := time.Unix(uts, 0)
+				tstamp := time.Unix(uts, 0).UTC()
 				ev.Properties[TimestampKey] = tstamp.Format("2006-01-02 15:04:05")
 			} else {
 				return numLines, fmt.Errorf("%s: converting Timestamp failed: %s", m.Product, err)
