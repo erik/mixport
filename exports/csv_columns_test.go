@@ -2,6 +2,7 @@ package exports
 
 import (
 	"bytes"
+	"encoding/csv"
 	"fmt"
 	"github.com/erik/mixport/mixpanel"
 	"io/ioutil"
@@ -17,14 +18,30 @@ func TestCSVColumnStreamer(t *testing.T) {
 		[]string{"aa3", "a3", "b3", "d3"},
 	}
 
-	output := make([]*bytes.Buffer, 4)
+	expected_rows := [][]string{
+		[]string{"a", "b", "", "d"},
+		[]string{"a", "b", "d"},
+		[]string{"", "a", "b", "", "d"},
+		[]string{"", "a", "b", "d"},
+	}
 
+	output := make([]*bytes.Buffer, 4)
 	defs := make(map[string]EventColumnDef)
 
+	expected := make([]string, 4)
 	for i := 0; i < 4; i++ {
 		output[i] = bytes.NewBuffer(nil)
 
 		defs[strconv.Itoa(i)] = NewEventColumnDef(output[i], columns[i])
+
+		buf := new(bytes.Buffer)
+
+		w := csv.NewWriter(buf)
+		w.Write(columns[i])
+		w.Write(expected_rows[i])
+		w.Flush()
+
+		expected[i] = buf.String()
 	}
 
 	events := make([]mixpanel.EventData, 5)
@@ -36,13 +53,6 @@ func TestCSVColumnStreamer(t *testing.T) {
 		events[i][fmt.Sprintf("b%d", i)] = "b"
 		events[i][fmt.Sprintf("c%d", i)] = nil
 		events[i][fmt.Sprintf("d%d", i)] = "d"
-	}
-
-	expected := []string{
-		"a0,b0,c0,d0\na,b,\"\",d\n",
-		"a1,b1,d1\na,b,d\n",
-		"aa2,a2,b2,c2,d2\n\"\",a,b,\"\",d\n",
-		"aa3,a3,b3,d3\n\"\",a,b,d\n",
 	}
 
 	records := make(chan mixpanel.EventData, 5)

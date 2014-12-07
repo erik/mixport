@@ -2,6 +2,7 @@ package exports
 
 import (
 	"bytes"
+	"encoding/csv"
 	"fmt"
 	"github.com/erik/mixport/mixpanel"
 	"io/ioutil"
@@ -10,7 +11,7 @@ import (
 
 func TestCSVStreamer(t *testing.T) {
 	var expected, output bytes.Buffer
-	expected.Write([]byte("event_id,key,value"))
+	expected.Write([]byte("event_id,key,value\n"))
 
 	records := make(chan mixpanel.EventData, 4)
 
@@ -20,7 +21,7 @@ func TestCSVStreamer(t *testing.T) {
 		event["foo"] = "bar,baz"
 
 		records <- event
-		expected.Write([]byte(fmt.Sprintf("\n%d,foo,\"bar,baz\"", i)))
+		expected.Write([]byte(fmt.Sprintf("%d,foo,\"bar,baz\"\n", i)))
 	}
 
 	// Ensure nils become empty strings
@@ -29,7 +30,12 @@ func TestCSVStreamer(t *testing.T) {
 	event["nil"] = nil
 
 	records <- event
-	expected.Write([]byte("\nniltype,nil,\"\"\n"))
+
+	// The way empty strings are handled changed between go 1.3 and 1.4, so
+	// can't rely on a static string.
+	w := csv.NewWriter(&expected)
+	w.Write([]string{"niltype", "nil", ""})
+	w.Flush()
 
 	close(records)
 

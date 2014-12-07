@@ -20,7 +20,8 @@ const MixpanelBaseURL = "https://data.mixpanel.com/api/2.0/export"
 // chosen to make collisions with actual keys very unlikely.
 const EventIDKey = "$__$$event_id"
 
-// Key into the EventData map that contains the SQL Timestamp/DateTime compatible timestamp of this event.
+// Key into the EventData map that contains the SQL Timestamp/DateTime
+// compatible timestamp of this event.
 const TimestampKey = "$__$$timestamp"
 
 // Mixpanel struct represents a set of credentials used to access the Mixpanel
