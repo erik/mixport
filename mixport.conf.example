@@ -47,7 +47,7 @@ removefailed = true
 state = on
 directory = /tmp/mixport/
 gzip = on
-fifo = true
+fifo = false
 removefailed = true
 
 
@@ -72,7 +72,7 @@ removefailed = true
 state = on
 directory = /tmp/mixport/
 gzip = on
-fifo = true
+fifo = false
 columns = /some/file.json
 removefailed = true
 
