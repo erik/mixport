@@ -322,7 +322,8 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 			region = "us-east-1"
 		}
 
-		ksis := kinesis.New(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey, kinesis.Region{region})
+		auth := kinesis.NewAuth(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey)
+		ksis := kinesis.New(auth, region)
 
 		wg.Add(1)
 		go func() {
