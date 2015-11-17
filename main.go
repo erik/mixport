@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"code.google.com/p/gcfg"
+	"gopkg.in/gcfg.v1"
 	"github.com/erik/mixport/exports"
 	"github.com/erik/mixport/mixpanel"
 	flag "github.com/ogier/pflag"
