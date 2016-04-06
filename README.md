@@ -205,15 +205,16 @@ the configuration file and then just pretend that the named pipe has all of the
 data already written to it, like so:
 
 ```bash
-$ ./mixport
-$ for fifo in /mixport/output/dir/*; do psql -c "COPY TABLE ... FROM $fifo" & done
+$ ./mixport &
+$ for f in /mixport/output/dir/*; do psql -c "COPY TABLE ... FROM $f" & done
 ```
 
 If you want to pipe things to S3 without hitting disk, I've had success with
 the [s3stream gem](https://github.com/kindkid/s3stream):
 
 ```bash
-$ for fifo in /mixport/output/dir/*; do s3stream mybucket $fifo <$fifo & done
+$ ./mixport &
+$ for f in /mixport/output/dir/*; do s3stream store mybucket $f < $f & done
 ```
 
 Neat.
