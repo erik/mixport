@@ -19,7 +19,6 @@ import (
 	"github.com/erik/mixport/exports"
 	"github.com/erik/mixport/mixpanel"
 	flag "github.com/ogier/pflag"
-	kinesis "github.com/sendgridlabs/go-kinesis"
 )
 
 // Mixpanel API credentials, used by the configuration parser.
@@ -54,20 +53,11 @@ type columnExportConfig struct {
 //
 // - `Product` is Mixpanel API credential information for each product that
 //   will be exported.
-// - `Kinesis` is access keys and configuration for Amazon Kinesis exporter.
 // - `JSON` and `CSV` are the configuration setups for the `JSON` and `CSV`
 //   exporters, respectively.
 // - `Columns` is the configuration for the `CSV column` export type.
 type configFormat struct {
 	Product map[string]*mixpanelCredentials
-	Kinesis struct {
-		State     bool
-		Keyid     string
-		Secretkey string
-		Stream    string
-		Region    string
-	}
-
 	JSON    fileExportConfig
 	CSV     fileExportConfig
 	Columns columnExportConfig
@@ -312,24 +302,6 @@ func exportProduct(export exportConfig, wg *sync.WaitGroup) {
 		chans = append(chans, c)
 
 		return c
-	}
-
-	if cfg.Kinesis.State {
-		c := makeChan()
-		region := cfg.Kinesis.Region
-		if region == "" {
-			// default region
-			region = "us-east-1"
-		}
-
-		auth := kinesis.NewAuth(cfg.Kinesis.Keyid, cfg.Kinesis.Secretkey)
-		ksis := kinesis.New(auth, region)
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			exports.KinesisStreamer(ksis, cfg.Kinesis.Stream, c)
-		}()
 	}
 
 	if cfg.JSON.State {
