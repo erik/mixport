@@ -76,7 +76,7 @@ For a full listing of command arguments available, use `./mixport --help`.
 
 ## Export formats
 
-There are currently 4 exportable formats:
+There are currently 3 exportable formats:
 
 ### Schemaless CSV
 
@@ -180,19 +180,6 @@ this) export writer, but I don't really see why you would want to.
 
 Like the CSV export, this is compressed by GZIP very efficiently. 85-90%
 compression ratio is typical for data I've looked at.
-
-### Amazon Kinesis
-
-Simple enough, this repeatedly calls
-[`PutRecord`](http://docs.aws.amazon.com/kinesis/latest/APIReference/API_PutRecord.html)
-with the data points in the flatten JSON format. Kinesis application to process
-data is left as an exercise left to the reader.
-
-**Warning:** haven't gotten around to testing this one yet.
-
-It's really simple to write a new one (seriously, just look at the
-[JSON one](https://github.com/erik/mixport/blob/master/exports/json.go)),
-so if you have an idea for an export, please contribute.
 
 ## Mixpanel to X without hitting disk
 

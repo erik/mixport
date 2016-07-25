@@ -77,25 +77,6 @@ columns = /some/file.json
 removefailed = true
 
 
-# Specifies the configuration for pushing JSON blobs into an Amazon Kinesis
-# stream.
-#
-# - `state`:  Whether or not this export is active
-# - `keyid`:  Amazon AWS access key id (often called AWS_ACCESS_KEY_ID)
-# - `secret`: Amazon AWS secret access key (often called AWS_SECRET_ACCESS_KEY)
-# - `stream`: Name of the Kinesis stream we'll be writing to. Messages will be
-#             partitioned accross each shard of the stream.
-# - `region`: Optionally specify the AWS region that your Kinesis stream is
-#             in. If not specified, it will be assumed that `region = us-east-1`
-
-[kinesis]
-state = off
-keyid = AWS_ACCESS_KEY_ID
-secretkey = AWS_SECRET_ACCESS_KEY
-stream = mixpanel-stream
-region = us-east-1
-
-
 # These product sections are used to define the names and API credentials of
 # the Mixpanel "products" we're interested in exporting data from.
 #
