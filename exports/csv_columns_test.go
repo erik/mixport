@@ -12,17 +12,17 @@ import (
 
 func TestCSVColumnStreamer(t *testing.T) {
 	columns := [][]string{
-		[]string{"a0", "b0", "c0", "d0"},
-		[]string{"a1", "b1", "d1"},
-		[]string{"aa2", "a2", "b2", "c2", "d2"},
-		[]string{"aa3", "a3", "b3", "d3"},
+		{"a0", "b0", "c0", "d0"},
+		{"a1", "b1", "d1"},
+		{"aa2", "a2", "b2", "c2", "d2"},
+		{"aa3", "a3", "b3", "d3"},
 	}
 
 	expected_rows := [][]string{
-		[]string{"a", "b", "", "d"},
-		[]string{"a", "b", "d"},
-		[]string{"", "a", "b", "", "d"},
-		[]string{"", "a", "b", "d"},
+		{"a", "b", "", "d"},
+		{"a", "b", "d"},
+		{"", "a", "b", "", "d"},
+		{"", "a", "b", "d"},
 	}
 
 	output := make([]*bytes.Buffer, 4)
@@ -72,10 +72,10 @@ func TestCSVColumnStreamer(t *testing.T) {
 
 func BenchmarkCSVColumnStreamer(b *testing.B) {
 	columns := [][]string{
-		[]string{"a0", "b0", "c0", "d0"},
-		[]string{"a1", "b1", "d1"},
-		[]string{"aa2", "a2", "b2", "c2", "d2"},
-		[]string{"aa3", "a3", "b3", "d3"},
+		{"a0", "b0", "c0", "d0"},
+		{"a1", "b1", "d1"},
+		{"aa2", "a2", "b2", "c2", "d2"},
+		{"aa3", "a3", "b3", "d3"},
 	}
 
 	defs := make(map[string]EventColumnDef)

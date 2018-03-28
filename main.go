@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/gcfg.v1"
 	"github.com/erik/mixport/exports"
 	"github.com/erik/mixport/mixpanel"
 	flag "github.com/ogier/pflag"
+	"gopkg.in/gcfg.v1"
 )
 
 // Mixpanel API credentials, used by the configuration parser.
