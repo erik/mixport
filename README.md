@@ -20,7 +20,7 @@ can do some streaming transforms on the data to make it more digestible.
 
 ## Building
 
-*Requires Go >= 1.1 to compile.*
+*Requires Go >= 1.3 to compile.*
 
 Using `go get`:
 
